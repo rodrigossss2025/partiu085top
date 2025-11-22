@@ -1,0 +1,214 @@
+import React, { useState } from 'react';
+import { 
+  PaperAirplaneIcon, 
+  CalendarDaysIcon, 
+  MagnifyingGlassIcon,
+  ArrowPathIcon 
+} from '@heroicons/react/24/outline';
+import DatePicker, { registerLocale } from 'react-datepicker';
+import "react-datepicker/dist/react-datepicker.css";
+import { ptBR } from 'date-fns/locale/pt-BR'; // Para ficar em Português
+import { postExecutarManual } from '../services/backendService';
+import { DestinoAutocomplete } from '../components/DestinoAutocomplete';
+
+// Registra o idioma português
+registerLocale('pt-BR', ptBR);
+
+export function RadarPage() {
+  const [searchMode, setSearchMode] = useState<'exact' | 'flex'>('exact');
+
+  const [destinosInput, setDestinosInput] = useState('');
+
+  // Agora usamos objetos Date reais (ou null) em vez de strings
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
+
+  const [loading, setLoading] = useState(false);
+  const [statusMsg, setStatusMsg] = useState('');
+
+  // Função auxiliar para formatar data para o Backend (YYYY-MM-DD)
+  const formatDate = (date: Date | null) => {
+    if (!date) return '';
+    return date.toISOString().split('T')[0];
+  };
+
+  const handleSearch = async () => {
+    if (!destinosInput || !startDate) {
+      alert("Preencha os destinos e a data inicial!");
+      return;
+    }
+
+    setLoading(true);
+    setStatusMsg('Consultando Amadeus em tempo real...');
+
+    const destinosList = destinosInput.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+    const modoEnvio = searchMode === 'flex' ? 'MANUAL_FLEX' : 'MANUAL';
+
+    try {
+      // Converte os objetos Date para string antes de enviar
+      const response = await postExecutarManual(
+        modoEnvio,
+        destinosList,
+        formatDate(startDate),
+        formatDate(endDate)
+      );
+
+      if (response.success) {
+        setStatusMsg(`Busca concluída! Verifique os resultados na aba Resultados.`);
+      } else {
+        setStatusMsg('Erro ao iniciar busca.');
+      }
+    } catch (error) {
+      setStatusMsg('Erro na comunicação com o servidor.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-8 animate-fade-in p-6">
+
+      <div className="flex items-center space-x-3 mb-2">
+        <PaperAirplaneIcon className="h-8 w-8 text-orange-500" />
+        <h1 className="text-3xl font-bold text-white">Radar Livre</h1>
+      </div>
+      <p className="text-gray-400 -mt-4 ml-11">
+        Explore qualquer destino do mundo usando o poder do Amadeus.
+      </p>
+
+      <div className="bg-slate-800/50 backdrop-blur-md border border-slate-700 p-6 rounded-2xl shadow-2xl">
+
+        {/* TABS */}
+        <div className="flex space-x-4 mb-6 border-b border-slate-700 pb-4">
+          <button
+            onClick={() => setSearchMode('exact')}
+            className={`pb-2 px-4 text-sm font-medium transition-colors relative ${
+              searchMode === 'exact' ? 'text-orange-500' : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            📅 Data Exata
+            {searchMode === 'exact' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-orange-500 rounded-t-full"></div>}
+          </button>
+          <button
+            onClick={() => setSearchMode('flex')}
+            className={`pb-2 px-4 text-sm font-medium transition-colors relative ${
+              searchMode === 'flex' ? 'text-blue-400' : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            🔍 Janela de Preços (Flexível)
+            {searchMode === 'flex' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-400 rounded-t-full"></div>}
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+          {/* DESTINOS */}
+          <div className="col-span-1 md:col-span-2">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Destinos (IATA)
+            </label>
+            <DestinoAutocomplete
+              value={destinosInput}
+              onChange={setDestinosInput}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Digite o nome da cidade ou código. O sistema busca no seu CSV.
+            </p>
+          </div>
+
+          {/* DATA INICIAL */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+              <CalendarDaysIcon className="h-4 w-4" />
+              {searchMode === 'exact' ? 'Data do Voo' : 'Início do Período'}
+            </label>
+            <div className="relative">
+              <DatePicker
+                selected={startDate}
+                onChange={(date) => setStartDate(date)}
+                dateFormat="dd/MM/yyyy"
+                minDate={new Date()} // Bloqueia passado
+                locale="pt-BR"
+                placeholderText="Selecione a data"
+                className="w-full bg-slate-900/80 border border-slate-600 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-orange-500 outline-none cursor-pointer"
+                wrapperClassName="w-full"
+                showPopperArrow={false}
+              />
+            </div>
+          </div>
+
+          {/* DATA FINAL */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+              <CalendarDaysIcon className="h-4 w-4" />
+              {searchMode === 'exact' ? 'Volta (Opcional)' : 'Fim do Período'}
+            </label>
+            <div className="relative">
+              <DatePicker
+                selected={endDate}
+                onChange={(date) => setEndDate(date)}
+                dateFormat="dd/MM/yyyy"
+                minDate={startDate || new Date()} // Bloqueia datas antes da IDA
+                locale="pt-BR"
+                placeholderText="Selecione a data"
+                className="w-full bg-slate-900/80 border border-slate-600 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-orange-500 outline-none cursor-pointer"
+                wrapperClassName="w-full"
+                showPopperArrow={false}
+              />
+            </div>
+            {searchMode === 'flex' && (
+              <p className="text-xs text-blue-400 mt-1">Vamos buscar qualquer data barata entre Início e Fim.</p>
+            )}
+          </div>
+
+        </div>
+
+        <div className="mt-8 flex justify-end items-center gap-4">
+          {statusMsg && <span className="text-sm text-green-400 animate-pulse">{statusMsg}</span>}
+
+          <button
+            onClick={handleSearch}
+            disabled={loading}
+            className={`flex items-center gap-2 px-8 py-3 rounded-xl font-bold shadow-lg transition-all transform hover:scale-105 ${
+              loading
+                ? 'bg-gray-600 cursor-not-allowed'
+                : searchMode === 'exact'
+                  ? 'bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white'
+                  : 'bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-400 hover:to-cyan-500 text-white'
+            }`}
+          >
+            {loading ? (
+              <>
+                <ArrowPathIcon className="h-5 w-5 animate-spin" />
+                Buscando...
+              </>
+            ) : (
+              <>
+                <MagnifyingGlassIcon className="h-5 w-5" />
+                {searchMode === 'exact' ? 'Buscar Voo Exato' : 'Escanear Período'}
+              </>
+            )}
+          </button>
+        </div>
+
+      </div>
+
+      {/* Informações */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center text-gray-500 text-sm">
+        <div className="bg-slate-900/40 p-4 rounded-lg border border-slate-800">
+          <strong className="block text-gray-300 mb-1">Modo Exato</strong>
+          Consulta o preço real-time de um voo específico.
+        </div>
+        <div className="bg-slate-900/40 p-4 rounded-lg border border-slate-800">
+          <strong className="block text-gray-300 mb-1">Modo Flexível</strong>
+          Varre o calendário do Amadeus e filtra datas baratas.
+        </div>
+        <div className="bg-slate-900/40 p-4 rounded-lg border border-slate-800">
+          <strong className="block text-gray-300 mb-1">Códigos IATA</strong>
+          Use sempre 3 letras. Ex: Fortaleza (FOR).
+        </div>
+      </div>
+
+    </div>
+  );
+}

@@ -1,0 +1,77 @@
+// ============================================================
+// api.ts — Integração central com o backend Flask (Partiu085)
+// VERSÃO CORRIGIDA PARA PRODUÇÃO (RENDER)
+// ============================================================
+
+// 1. Tenta pegar do .env da Vercel.
+// 2. Se não tiver, usa o endereço REAL do Render (não o localhost!)
+const BASE_URL = import.meta.env.VITE_API_URL || "https://partiu085-api.onrender.com";
+
+// Função auxiliar genérica de requisição
+async function request(endpoint: string, options: RequestInit = {}) {
+  try {
+    // Remove barra extra se tiver duplicada
+    // Ex: BASE_URL termina com / e endpoint começa com /
+    const url = `${BASE_URL.replace(/\/$/, '')}${endpoint}`;
+
+    console.log(`📡 Requisição para: ${url}`); // Log para debug
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000); // Aumentei para 30s (Render é lento as vezes)
+
+    const response = await fetch(url, {
+      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+      ...options,
+    });
+
+    clearTimeout(timeout);
+
+    if (!response.ok) throw new Error(`Erro HTTP ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    console.error(`❌ Erro em ${endpoint}:`, error);
+    return { sucesso: false, mensagem: "Erro de conexão com o backend." };
+  }
+}
+
+// ============================================================
+// 🔹 Execução principal — Varredura Amadeus
+// ============================================================
+export async function executarRadar(body?: any) {
+  console.log("🚀 Executando varredura personalizada via /api/executar...");
+  // Nota: O Python espera snake_case (data_ida), garanta que o body esteja certo
+  return await request("/api/executar", {
+    method: "POST",
+    body: JSON.stringify(body || { modo: "AUTO" }),
+  });
+}
+
+// ============================================================
+// 🔹 Resultados — Últimos voos detectados
+// ============================================================
+export async function getResultados() {
+  console.log("📊 Carregando resultados via /api/resultados...");
+  return await request("/api/resultados");
+}
+
+// ============================================================
+// 🔹 Status do radar (em uso futuro no painel)
+// ============================================================
+export async function getStatusRadar() {
+  return await request("/api/status_radar");
+}
+
+// ============================================================
+// 🔹 Teste de conexão com Telegram
+// ============================================================
+export async function testarTelegram() {
+  return await request("/api/test_telegram");
+}
+
+// ============================================================
+// 🔹 Teste de conexão com Amadeus
+// ============================================================
+export async function testarAmadeus() {
+  return await request("/api/test_amadeus");
+}

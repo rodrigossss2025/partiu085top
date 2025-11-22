@@ -1,0 +1,26 @@
+Diretórios de Python
+
+pycache/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+
+# Ignorar arquivos de backup / grandes
+*.zip
+*.rar
+
+#Arquivos de dados
+
+# Arquivos de dados
+data/
+!data/coletas_filtrado_iata.csv
+
+Arquivos de ambiente - CRUCIAL para segurança!
+
+.env
+/frontend/.env.local
+/frontend/.env.development
