@@ -1,103 +1,97 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { MapPinIcon } from '@heroicons/react/24/outline';
-import { getDestinosDisponiveis } from '../services/backendService';
+import React, { useEffect, useState } from "react";
+import { getDestinos } from "../services/backendService";
 
 interface Props {
   value: string;
-  onChange: (val: string) => void;
-}
-
-interface Destino {
-  label: string; // Ex: "Miami (MIA)"
-  value: string; // Ex: "MIA"
+  onChange: (value: string) => void;
 }
 
 export function DestinoAutocomplete({ value, onChange }: Props) {
-  const [suggestions, setSuggestions] = useState<Destino[]>([]);
-  const [filtered, setFiltered] = useState<Destino[]>([]);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [lista, setLista] = useState<any[]>([]);
+  const [filtrados, setFiltrados] = useState<any[]>([]);
+  const [open, setOpen] = useState(false);
 
-  // 1. Carrega os destinos do seu CSV ao iniciar
   useEffect(() => {
     async function load() {
-      const data = await getDestinosDisponiveis();
-      if (data.success && data.destinos) {
-        setSuggestions(data.destinos);
-      }
+      const resp = await getDestinos();
+      const destinos = resp?.destinos || resp?.results || [];
+      setLista(destinos);
     }
     load();
   }, []);
 
-  // 2. Fecha o dropdown se clicar fora
-  useEffect(() => {
-    function handleClickOutside(event: any) {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
-        setShowDropdown(false);
-      }
+  const filtrar = (texto: string) => {
+    const termo = texto.split(",").pop()?.trim().toUpperCase() || "";
+
+    if (!termo) {
+      setFiltrados([]);
+      return;
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
-  // 3. Lógica de filtro inteligente (multiselect)
-  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const rawVal = e.target.value;
-    onChange(rawVal);
+    const listaFiltrada = lista
+      .map((d) => ({
+        iata:
+          d.iata ||
+          d.IATA ||
+          d.codigo ||
+          d.sigla ||
+          d.code ||
+          d.iata_code ||
+          "",
+        cidade:
+          d.cidade ||
+          d.city ||
+          d.nome ||
+          d.nome_cidade ||
+          d.destino ||
+          "",
+      }))
+      .filter((d) => d.iata)
+      .filter(
+        (d) =>
+          d.iata.toUpperCase().includes(termo) ||
+          d.cidade.toUpperCase().includes(termo)
+      )
+      .slice(0, 12);
 
-    // Pega apenas o último termo digitado após a vírgula
-    const terms = rawVal.split(',');
-    const currentTerm = terms[terms.length - 1].trim().toUpperCase();
-
-    if (currentTerm.length >= 1) {
-      const matches = suggestions.filter(s =>
-        s.label.toUpperCase().includes(currentTerm) ||
-        s.value.includes(currentTerm)
-      ).slice(0, 5); // Limita a 5 sugestões
-
-      setFiltered(matches);
-      setShowDropdown(matches.length > 0);
-    } else {
-      setShowDropdown(false);
-    }
-  };
-
-  // 4. Ao selecionar um item
-  const handleSelect = (iata: string) => {
-    const terms = value.split(',');
-    terms.pop(); // Remove o termo incompleto digitado
-    terms.push(iata); // Adiciona o IATA correto
-
-    const newValue = terms.join(', ') + ', '; // Adiciona vírgula para o próximo
-    onChange(newValue);
-    setShowDropdown(false);
-
-    // Foca de volta no input (opcional, via ref se quisesse)
+    setFiltrados(listaFiltrada);
   };
 
   return (
-    <div className="relative w-full" ref={wrapperRef}>
+    <div className="relative">
       <input
-        type="text"
         value={value}
-        onChange={handleInput}
-        placeholder="Digite para buscar (Ex: FOR, MIA)"
-        className="w-full bg-slate-900/80 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:ring-2 focus:ring-orange-500 outline-none transition-all uppercase"
+        onChange={(e) => {
+          onChange(e.target.value.toUpperCase());
+          filtrar(e.target.value);
+          setOpen(true);
+        }}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder="Digite cidade ou código IATA…"
+        className="w-full px-4 py-3 rounded-xl bg-slate-900/70 border border-slate-600 text-white outline-none focus:ring-2 focus:ring-orange-500"
       />
 
-      {showDropdown && (
-        <ul className="absolute z-50 w-full bg-slate-800 border border-slate-600 rounded-xl mt-1 shadow-2xl max-h-60 overflow-y-auto animate-fade-in">
-          {filtered.map((item) => (
-            <li
-              key={item.value}
-              onClick={() => handleSelect(item.value)}
-              className="px-4 py-3 hover:bg-slate-700 cursor-pointer text-gray-200 flex items-center gap-2 transition-colors border-b border-slate-700/50 last:border-0"
+      {open && filtrados.length > 0 && (
+        <div className="absolute w-full bg-slate-900 border border-slate-700 rounded-xl mt-1 shadow-xl max-h-72 overflow-y-auto z-20">
+          {filtrados.map((item, idx) => (
+            <button
+              key={idx}
+              type="button"
+              className="w-full text-left px-4 py-2 hover:bg-slate-800 flex justify-between text-sm"
+              onMouseDown={() => {
+                const partes = value.split(",");
+                partes[partes.length - 1] = item.iata;
+                onChange(partes.join(", ").toUpperCase());
+                setOpen(false);
+              }}
             >
-              <MapPinIcon className="h-4 w-4 text-orange-500" />
-              <span>{item.label}</span>
-            </li>
+              <span className="font-mono text-orange-300">{item.iata}</span>
+              <span className="text-slate-300 ml-2 truncate">
+                {item.cidade}
+              </span>
+            </button>
           ))}
-        </ul>
+        </div>
       )}
     </div>
   );

@@ -21,14 +21,14 @@ export const SettingsPage: React.FC = () => {
     }
   }
 
-  async function iniciar() {
+  async function handleIniciar() {
     setLoading(true);
     await iniciarAgendador();
     await fetchStatus();
     setLoading(false);
   }
 
-  async function pausar() {
+  async function handlePausar() {
     setLoading(true);
     await pausarAgendador();
     await fetchStatus();
@@ -39,28 +39,33 @@ export const SettingsPage: React.FC = () => {
     fetchStatus();
   }, []);
 
+  const textoStatus =
+    status?.status ||
+    status?.message ||
+    "Carregando status do agendador...";
+
   return (
     <div className="p-4 space-y-4">
       <GlassCard>
-        <h2 className="text-lg font-bold mb-2">Status do Agendador</h2>
+        <h2 className="text-lg font-bold mb-2 text-white">
+          Status do Agendador
+        </h2>
 
-        <p className="text-sm text-gray-300 mb-2">
-          {status ? status.status : "Carregando..."}
-        </p>
+        <p className="text-sm text-gray-300 mb-2">{textoStatus}</p>
 
         <div className="flex gap-3 mt-3">
           <button
-            onClick={iniciar}
+            onClick={handleIniciar}
             disabled={loading}
-            className="px-4 py-2 bg-green-500 hover:bg-green-600 rounded-md text-white font-bold"
+            className="px-4 py-2 bg-green-500 hover:bg-green-600 rounded-md text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Iniciar
           </button>
 
           <button
-            onClick={pausar}
+            onClick={handlePausar}
             disabled={loading}
-            className="px-4 py-2 bg-red-500 hover:bg-red-600 rounded-md text-white font-bold"
+            className="px-4 py-2 bg-red-500 hover:bg-red-600 rounded-md text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Pausar
           </button>

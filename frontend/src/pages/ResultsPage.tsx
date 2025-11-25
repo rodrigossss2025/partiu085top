@@ -1,31 +1,36 @@
-import React, { useEffect, useState, useMemo } from 'react';
+// frontend/src/pages/ResultsPage.tsx
+
+import React, { useEffect, useMemo, useState } from "react";
 import {
   TicketIcon,
   TrashIcon,
-  MagnifyingGlassIcon
-} from '@heroicons/react/24/outline';
-import { getResultados } from '../services/backendService';
-import { FlightCard } from '../components/FlightCard';
-import type { Oferta } from '../types';
+  MagnifyingGlassIcon,
+} from "@heroicons/react/24/outline";
+import { getResultados } from "../services/backendService";
+import { FlightCard } from "../components/FlightCard";
+import type { Oferta } from "../types";
 
 interface OfertasAgrupadas {
   hoje: Oferta[];
   ontem: Oferta[];
 }
 
-// ----------- CONVERSOR DE TIMESTAMP 100% CONFIÁVEL -------------
+// Converte "2025-11-22 01:33:45" ou ISO -> Date
 function parseTimestamp(ts: string) {
   if (!ts) return new Date(0);
-
-  const [datePart, timePart] = ts.split(" ");
-  const [year, month, day] = datePart.split("-").map(Number);
-  const [hour, minute, second] = timePart.split(":").map(Number);
-
-  return new Date(year, month - 1, day, hour, minute, second);
+  return new Date(ts.replace(" ", "T"));
 }
 
-// ----------- PROCESSAMENTO DE RESULTADOS -------------
-function processarResultados(listaBruta: Oferta[], filtro: string): OfertasAgrupadas {
+function normalizePreco(p: any) {
+  if (p === null || p === undefined) return 0;
+  if (typeof p === "number") return p;
+  return Number(String(p).replace(",", ".").replace("R$", "").trim());
+}
+
+function processarResultados(
+  listaBruta: Oferta[],
+  filtro: string
+): OfertasAgrupadas {
   const hoje = new Date();
   const ontem = new Date();
   ontem.setDate(ontem.getDate() - 1);
@@ -40,20 +45,34 @@ function processarResultados(listaBruta: Oferta[], filtro: string): OfertasAgrup
 
   const termoFiltro = filtro.trim().toUpperCase();
   const listaFiltrada = termoFiltro
-    ? listaBruta.filter((o) => o.destino.toUpperCase().includes(termoFiltro))
+    ? listaBruta.filter((o: any) =>
+        String(o.destino || "").toUpperCase().includes(termoFiltro)
+      )
     : listaBruta;
 
-  listaFiltrada.forEach((oferta) => {
-    if (oferta.modo === 'AUTO' && oferta.baseline && Number(oferta.baseline) > 0) {
-      if (Number(oferta.preco) > Number(oferta.baseline)) return;
+  listaFiltrada.forEach((oferta: any) => {
+    const precoNum = normalizePreco(oferta.preco);
+
+    // Filtro baseline só para AUTO
+    if (
+      oferta.modo === "AUTO" &&
+      oferta.baseline &&
+      Number(oferta.baseline) > 0 &&
+      precoNum > Number(oferta.baseline)
+    ) {
+      return;
     }
 
-    const dataEncontrada = parseTimestamp(oferta.timestamp);
+    const dataEncontrada = parseTimestamp(String(oferta.timestamp || ""));
 
-    const diffHours = (hoje.getTime() - dataEncontrada.getTime()) / 3600000;
+    const diffHours =
+      (Date.now() - dataEncontrada.getTime()) / (1000 * 60 * 60);
     if (diffHours > 48) return;
 
-    const ofertaProcessada = { ...oferta, preco: Number(oferta.preco) };
+    const ofertaProcessada: Oferta = {
+      ...oferta,
+      preco: precoNum,
+    };
 
     if (isSameDay(dataEncontrada, hoje)) {
       ofertasHoje.push(ofertaProcessada);
@@ -62,16 +81,15 @@ function processarResultados(listaBruta: Oferta[], filtro: string): OfertasAgrup
     }
   });
 
-  ofertasHoje.sort((a, b) => Number(a.preco) - Number(b.preco));
-  ofertasOntem.sort((a, b) => Number(a.preco) - Number(b.preco));
+  ofertasHoje.sort((a, b) => a.preco - b.preco);
+  ofertasOntem.sort((a, b) => a.preco - b.preco);
 
   return { hoje: ofertasHoje, ontem: ofertasOntem };
 }
 
-// ----------- COMPONENTE PRINCIPAL -------------
 export function ResultsPage() {
   const [allOfertas, setAllOfertas] = useState<Oferta[]>([]);
-  const [filter, setFilter] = useState('');
+  const [filter, setFilter] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -79,13 +97,22 @@ export function ResultsPage() {
       setLoading(true);
       try {
         const data = await getResultados();
-        if (data && Array.isArray(data.results)) {
-          setAllOfertas(data.results);
+
+        // 🔥 SUPORTE A TODOS OS FORMATOS:
+        const lista =
+          data?.results ||
+          data?.resultados ||
+          data?.ofertas ||
+          data?.lista ||
+          [];
+
+        if (Array.isArray(lista)) {
+          setAllOfertas(lista);
         } else {
-          console.warn('Formato inesperado recebido em /resultados:', data);
+          console.warn("Formato inesperado:", data);
         }
       } catch (error) {
-        console.error('Erro ao buscar resultados', error);
+        console.error("Erro ao ler resultados", error);
       } finally {
         setLoading(false);
       }
@@ -102,8 +129,7 @@ export function ResultsPage() {
 
   return (
     <div className="space-y-8 animate-fade-in p-6">
-
-      {/* Cabeçalho */}
+      {/* CABEÇALHO */}
       <div className="flex items-center justify-between mb-2">
         <div>
           <div className="flex items-center space-x-3 mb-2">
@@ -119,7 +145,7 @@ export function ResultsPage() {
         </div>
       </div>
 
-      {/* Filtro */}
+      {/* FILTRO */}
       <div className="mb-4">
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -135,7 +161,7 @@ export function ResultsPage() {
         </div>
       </div>
 
-      {/* Área de Resultados */}
+      {/* RESULTADOS */}
       {loading ? (
         <div className="text-center py-20 text-gray-500 animate-pulse">
           Carregando e filtrando ofertas...
@@ -145,7 +171,7 @@ export function ResultsPage() {
           <TrashIcon className="h-12 w-12 text-slate-600 mx-auto mb-4" />
           <p className="text-gray-400">Nenhuma oferta encontrada.</p>
           <p className="text-sm text-gray-600">
-            {filter ? "Tente limpar o filtro" : "Use o Radar para buscar."}
+            {filter ? "Tente limpar o filtro ou" : "Use o Radar para buscar."}
           </p>
         </div>
       ) : (
@@ -153,8 +179,10 @@ export function ResultsPage() {
           {grupos.hoje.length > 0 && (
             <section>
               <div className="flex items-center gap-2 mb-4">
-                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
-                <h2 className="text-xl font-bold text-white">Fresquinhas do Dia (Hoje)</h2>
+                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                <h2 className="text-xl font-bold text-white">
+                  Fresquinhas do Dia (Hoje)
+                </h2>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {grupos.hoje.map((voo, i) => (
@@ -167,8 +195,10 @@ export function ResultsPage() {
           {grupos.ontem.length > 0 && (
             <section className="opacity-80 hover:opacity-100 transition-opacity">
               <div className="flex items-center gap-2 mb-4 border-t border-slate-700 pt-8">
-                <div className="h-2 w-2 rounded-full bg-orange-500"></div>
-                <h2 className="text-xl font-bold text-gray-300">Última Chamada (Ontem)</h2>
+                <div className="h-2 w-2 rounded-full bg-orange-500" />
+                <h2 className="text-xl font-bold text-gray-300">
+                  Última Chamada (Ontem)
+                </h2>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {grupos.ontem.map((voo, i) => (

@@ -150,7 +150,42 @@ def api_executar():
     return jsonify({"success": True, "message": "Busca iniciada."})
 
 @app.route("/api/resultados", methods=["GET"])
-def api_resultados(): return jsonify({"results": _ler_resultados()})
+def api_resultados():
+    try:
+        # Caminho do CSV/JSON do radar (depende do seu projeto)
+        caminho = os.path.join(DATA_DIR, "resultados.json")
+
+        if not os.path.exists(caminho):
+            return jsonify({
+                "success": True,
+                "results": []
+            })
+
+        with open(caminho, "r", encoding="utf-8") as f:
+            dados = json.load(f)
+
+        # 🔥 Padronização obrigatória:
+        lista = (
+            dados.get("results") or
+            dados.get("resultados") or
+            dados.get("lista") or
+            dados.get("ofertas") or
+            []
+        )
+
+        return jsonify({
+            "success": True,
+            "results": lista
+        })
+
+    except Exception as e:
+        print("Erro /api/resultados:", e)
+        return jsonify({
+            "success": False,
+            "results": [],
+            "error": str(e)
+        })
+
 
 @app.route("/api/status_radar", methods=["GET"])
 def api_status_radar():
