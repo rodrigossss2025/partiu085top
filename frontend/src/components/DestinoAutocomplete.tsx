@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { getDestinos } from "../services/backendService";
 
 interface Props {
@@ -10,7 +10,9 @@ export function DestinoAutocomplete({ value, onChange }: Props) {
   const [lista, setLista] = useState<any[]>([]);
   const [filtrados, setFiltrados] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
+  const blurLock = useRef(false); // evita fechar ao clicar
 
+  // ---- Carrega uma única vez
   useEffect(() => {
     async function load() {
       const resp = await getDestinos();
@@ -19,6 +21,9 @@ export function DestinoAutocomplete({ value, onChange }: Props) {
     }
     load();
   }, []);
+
+  // ---- Debounce
+  const debounceTimer = useRef<any>(null);
 
   const filtrar = (texto: string) => {
     const termo = texto.split(",").pop()?.trim().toUpperCase() || "";
@@ -57,28 +62,42 @@ export function DestinoAutocomplete({ value, onChange }: Props) {
     setFiltrados(listaFiltrada);
   };
 
+  const handleChange = (texto: string) => {
+    onChange(texto.toUpperCase());
+
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+
+    debounceTimer.current = setTimeout(() => {
+      filtrar(texto);
+    }, 120);
+
+    setOpen(true);
+  };
+
   return (
     <div className="relative">
       <input
         value={value}
-        onChange={(e) => {
-          onChange(e.target.value.toUpperCase());
-          filtrar(e.target.value);
-          setOpen(true);
+        onChange={(e) => handleChange(e.target.value)}
+        onBlur={() => {
+          if (!blurLock.current) setOpen(false);
         }}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
         placeholder="Digite cidade ou código IATA…"
         className="w-full px-4 py-3 rounded-xl bg-slate-900/70 border border-slate-600 text-white outline-none focus:ring-2 focus:ring-orange-500"
       />
 
       {open && filtrados.length > 0 && (
-        <div className="absolute w-full bg-slate-900 border border-slate-700 rounded-xl mt-1 shadow-xl max-h-72 overflow-y-auto z-20">
+        <div
+          className="absolute w-full bg-slate-900 border border-slate-700 rounded-xl mt-1 shadow-xl max-h-72 overflow-y-auto z-20"
+          onMouseEnter={() => (blurLock.current = true)}
+          onMouseLeave={() => (blurLock.current = false)}
+        >
           {filtrados.map((item, idx) => (
             <button
               key={idx}
               type="button"
               className="w-full text-left px-4 py-2 hover:bg-slate-800 flex justify-between text-sm"
-              onMouseDown={() => {
+              onClick={() => {
                 const partes = value.split(",");
                 partes[partes.length - 1] = item.iata;
                 onChange(partes.join(", ").toUpperCase());

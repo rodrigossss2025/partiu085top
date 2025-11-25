@@ -117,6 +117,29 @@ def _resumo_status_radar() -> Dict[str, Any]:
 # ------------------------------------------------------
 # 6. ROTAS DA API
 # ------------------------------------------------------
+
+@app.route("/api/destinos", methods=["GET"])
+def api_destinos():
+    caminho = os.path.join(DATA_DIR, "coletas_filtrado_iata.csv")
+
+    if not os.path.exists(caminho):
+        return jsonify({"success": False, "destinos": []})
+
+    import csv
+    destinos = []
+
+    with open(caminho, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            destinos.append({
+                "iata": row.get("iata", "").upper(),
+                "cidade": row.get("cidade", ""),
+                "pais": row.get("pais", "")
+            })
+
+    return jsonify({"success": True, "destinos": destinos})
+
+
 @app.route("/")
 def raiz():
     return jsonify({"status": "online", "app": "Partiu085 V2"})
