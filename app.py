@@ -215,18 +215,6 @@ def api_status_radar():
     info = _resumo_status_radar()
     return jsonify({"total_registros": info.get("total_registros", 0), "ultima_execucao": info.get("ultima_atualizacao")})
 
-@app.route("/api/destinos", methods=["GET"])
-def api_destinos():
-    if not os.path.exists(DESTINOS_CSV_PATH): return jsonify({"success": False, "destinos": []}), 404
-    destinos = []
-    try:
-        with open(DESTINOS_CSV_PATH, "r", encoding="utf-8-sig") as f:
-            reader = csv.DictReader(f, delimiter=';')
-            for row in reader:
-                if row.get("destino"): destinos.append({"label": f"{row.get('NOME_DESTINO','')} ({row.get('destino')})", "value": row.get("destino")})
-    except: pass
-    return jsonify({"success": True, "destinos": destinos})
-
 # --- Alertas ---
 @app.route("/api/alertas", methods=["GET", "POST"])
 def api_alertas():
