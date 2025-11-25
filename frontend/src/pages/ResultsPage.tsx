@@ -81,8 +81,9 @@ function processarResultados(
     }
   });
 
-  ofertasHoje.sort((a, b) => a.preco - b.preco);
-  ofertasOntem.sort((a, b) => a.preco - b.preco);
+  ofertasHoje.sort((a, b) => (Number(a.preco) || 0) - (Number(b.preco) || 0));
+  ofertasOntem.sort((a, b) => (Number(a.preco) || 0) - (Number(b.preco) || 0));
+
 
   return { hoje: ofertasHoje, ontem: ofertasOntem };
 }

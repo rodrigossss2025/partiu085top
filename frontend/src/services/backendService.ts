@@ -1,23 +1,22 @@
 // frontend/src/services/backendService.ts
 
-// BASE ÚNICA: local usa localhost, produção usa Render
+// Detecta ambiente local corretamente
 const isLocal =
   typeof window !== "undefined" &&
-  (window.location.hostname === "localhost" ||
-   window.location.hostname === "127.0.0.1");
+  (
+    window.location.hostname === "localhost" ||
+    window.location.hostname.startsWith("127.")
+  );
 
-
-export const API_BASE_URL = isLocal
+const API_BASE_URL = isLocal
   ? "http://127.0.0.1:5000/api"
   : "https://partiu085-api.onrender.com/api";
 
-console.log("🔗 Backend:", API_BASE_URL);
+console.log("🔗 Conectando Backend em:", API_BASE_URL);
 
 async function request(endpoint: string, options: RequestInit = {}) {
   try {
-    const url = `${API_BASE_URL}${endpoint}`;
-
-    const response = await fetch(url, {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       headers: {
         "Content-Type": "application/json",
       },
@@ -25,18 +24,19 @@ async function request(endpoint: string, options: RequestInit = {}) {
     });
 
     if (!response.ok) {
-      console.error(`❌ HTTP ${response.status} em ${url}`);
-      return { success: false, message: "Erro HTTP", results: [] };
+      console.error(`❌ Erro HTTP em ${endpoint}:`, response.status);
+      throw new Error(`Erro HTTP ${response.status}`);
     }
 
     return await response.json();
   } catch (error) {
-    console.error(`❌ Erro ao acessar ${endpoint}:`, error);
+    console.error(`❌ Erro em ${endpoint}:`, error);
     return { success: false, message: "Erro de conexão.", results: [] };
   }
 }
 
-// ---- RADAR
+// =================== RADAR MANUAL ===================
+
 export async function postExecutarManual(
   modo: "MANUAL" | "MANUAL_FLEX",
   destinos: string[],
@@ -54,17 +54,21 @@ export async function postExecutarManual(
   });
 }
 
-// ---- RESULTADOS
+// =================== RESULTADOS ===================
+
 export async function getResultados() {
-  return await request(`/resultados?t=${Date.now()}`);
+  const t = Date.now(); // evita cache
+  return await request(`/resultados?t=${t}`);
 }
 
-// ---- DESTINOS
+// =================== DESTINOS ===================
+
 export async function getDestinos() {
   return await request("/destinos");
 }
 
-// ---- AGENDADOR
+// =================== AGENDADOR ===================
+
 export async function getStatusRadar() {
   return await request("/agendador/status");
 }
@@ -77,7 +81,8 @@ export async function pausarAgendador() {
   return await request("/agendador/pausar", { method: "POST" });
 }
 
-// ---- ALERTAS
+// =================== ALERTAS ===================
+
 export async function getAlertas() {
   return await request("/alertas");
 }
