@@ -14,6 +14,8 @@ const API_BASE_URL = isLocal
 
 console.log("🔗 Conectando Backend em:", API_BASE_URL);
 
+// =================== FUNÇÃO GENÉRICA ===================
+
 async function request(endpoint: string, options: RequestInit = {}) {
   try {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -25,7 +27,16 @@ async function request(endpoint: string, options: RequestInit = {}) {
 
     if (!response.ok) {
       console.error(`❌ Erro HTTP em ${endpoint}:`, response.status);
+      const raw = await response.text();
+      console.error("Resposta bruta:", raw.slice(0, 500));
       throw new Error(`Erro HTTP ${response.status}`);
+    }
+
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      const raw = await response.text();
+      console.error("Resposta NÃO-JSON recebida:", raw.slice(0, 500));
+      throw new Error("Resposta não é JSON");
     }
 
     return await response.json();
@@ -67,18 +78,23 @@ export async function getDestinos() {
   return await request("/destinos");
 }
 
-// =================== AGENDADOR ===================
+// =================== STATUS DO RADAR / AGENDADOR ===================
 
 export async function getStatusRadar() {
-  return await request("/agendador/status");
+  // backend expõe /api/status_radar (sem /agendador)
+  return await request("/status_radar");
 }
 
+// hoje o agendador sobe automaticamente com o backend;
+// mantemos as funções apenas para não quebrar a UI
 export async function iniciarAgendador() {
-  return await request("/agendador/iniciar", { method: "POST" });
+  console.warn("iniciarAgendador(): controle manual desabilitado; agendador é automático.");
+  return { success: false, message: "Agendador inicia automaticamente com o backend." };
 }
 
 export async function pausarAgendador() {
-  return await request("/agendador/pausar", { method: "POST" });
+  console.warn("pausarAgendador(): controle manual desabilitado; agendador é automático.");
+  return { success: false, message: "Pausa remota do agendador indisponível." };
 }
 
 // =================== ALERTAS ===================
@@ -97,6 +113,8 @@ export async function addAlerta(data: any) {
 export async function deleteAlerta(id: string) {
   return await request(`/alertas/${id}`, { method: "DELETE" });
 }
+
+// =================== LAB MILLAS / PROCESSADOR DE TEXTO ===================
 
 export async function postProcessarTexto(texto: string, modo: string) {
   return await request("/processar-texto", {
