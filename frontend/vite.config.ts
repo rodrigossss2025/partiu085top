@@ -3,7 +3,11 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 
 export default defineConfig({
+  // 🚀 ESSENCIAL PARA FUNCIONAR NA VERCEL
+  base: "./",
+
   plugins: [react()],
+
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -12,6 +16,7 @@ export default defineConfig({
       "@api": path.resolve(__dirname, "./src/api"),
     },
   },
+
   server: {
     proxy: {
       "/api": {
