@@ -3,8 +3,9 @@
 // BASE ÚNICA: local usa localhost, produção usa Render
 const isLocal =
   typeof window !== "undefined" &&
-  (window.location.hostname.includes("localhost") ||
-    window.location.hostname.startsWith("127."));
+  (window.location.hostname === "localhost" ||
+   window.location.hostname === "127.0.0.1");
+
 
 export const API_BASE_URL = isLocal
   ? "http://127.0.0.1:5000/api"

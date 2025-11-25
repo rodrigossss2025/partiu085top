@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """Aplicação Flask principal — Partiu085 FULL
-Versão FINAL: Sincronizada com resultados_v2.csv
+Versão FINAL corrigida
 """
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ import csv
 import os
 import threading
 import sys
+import json
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
@@ -52,9 +53,7 @@ except ImportError as e:
 DATA_DIR = os.path.join(BASE_DIR, "data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
-# 🔥 AQUI ESTÁ A CORREÇÃO CRÍTICA: V2 🔥
 RESULTADOS_CSV = os.path.join(DATA_DIR, "resultados_v2.csv")
-
 ALERTAS_CSV_PATH = os.path.join(DATA_DIR, "alertas_fixos.csv")
 DESTINOS_CSV_PATH = os.path.join(DATA_DIR, "coletas_filtrado_iata.csv")
 
@@ -79,7 +78,6 @@ if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug:
 # 5. FUNÇÕES UTILITÁRIAS
 # ------------------------------------------------------
 def _ler_resultados() -> List[Dict[str, Any]]:
-    """Lê o CSV correto (v2)."""
     if os.path.exists(RESULTADOS_CSV):
         try:
             with open(RESULTADOS_CSV, "r", encoding="utf-8") as f:
@@ -89,11 +87,13 @@ def _ler_resultados() -> List[Dict[str, Any]]:
     return []
 
 def _ler_alertas() -> List[Dict[str, Any]]:
-    if not os.path.exists(ALERTAS_CSV_PATH): return []
+    if not os.path.exists(ALERTAS_CSV_PATH):
+        return []
     try:
         with open(ALERTAS_CSV_PATH, mode='r', encoding='utf-8') as f:
             return list(csv.DictReader(f))
-    except: return []
+    except:
+        return []
 
 def _salvar_alertas(alertas: List[Dict[str, Any]]):
     colunas = ['id', 'origem', 'destino', 'data_ida', 'data_volta', 'preco_alvo']
@@ -120,14 +120,12 @@ def _resumo_status_radar() -> Dict[str, Any]:
 
 @app.route("/api/destinos", methods=["GET"])
 def api_destinos():
-    caminho = os.path.join(DATA_DIR, "coletas_filtrado_iata.csv")
+    caminho = DESTINOS_CSV_PATH
 
     if not os.path.exists(caminho):
         return jsonify({"success": False, "destinos": []})
 
-    import csv
     destinos = []
-
     with open(caminho, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
@@ -144,6 +142,7 @@ def api_destinos():
 def raiz():
     return jsonify({"status": "online", "app": "Partiu085 V2"})
 
+
 @app.route("/api/executar", methods=["POST"])
 def api_executar():
     data = request.get_json(force=True, silent=True) or {}
@@ -156,15 +155,14 @@ def api_executar():
 
     def _background_job():
         try:
-            # 1. Busca (PRIORIDADE)
             log_info("✈️ Executando orquestrador...")
-            executar_fluxo_voos(modo=modo, destinos_personalizados=destinos, data_ida=data_ida, data_volta=data_volta)
+            executar_fluxo_voos(modo=modo, destinos_personalizados=destinos,
+                                data_ida=data_ida, data_volta=data_volta)
             log_info("✅ Busca finalizada no CSV v2!")
-
-            # 2. Notificação
             try:
-                enviar_mensagem_telegram(f"✅ Varredura manual concluída!")
-            except: pass
+                enviar_mensagem_telegram("✅ Varredura manual concluída!")
+            except:
+                pass
 
         except Exception as exc:
             log_info(f"🚨 Erro fatal: {exc}")
@@ -172,22 +170,18 @@ def api_executar():
     threading.Thread(target=_background_job, daemon=True).start()
     return jsonify({"success": True, "message": "Busca iniciada."})
 
+
 @app.route("/api/resultados", methods=["GET"])
 def api_resultados():
     try:
-        # Caminho do CSV/JSON do radar (depende do seu projeto)
         caminho = os.path.join(DATA_DIR, "resultados.json")
 
         if not os.path.exists(caminho):
-            return jsonify({
-                "success": True,
-                "results": []
-            })
+            return jsonify({"success": True, "results": []})
 
         with open(caminho, "r", encoding="utf-8") as f:
             dados = json.load(f)
 
-        # 🔥 Padronização obrigatória:
         lista = (
             dados.get("results") or
             dados.get("resultados") or
@@ -196,24 +190,21 @@ def api_resultados():
             []
         )
 
-        return jsonify({
-            "success": True,
-            "results": lista
-        })
+        return jsonify({"success": True, "results": lista})
 
     except Exception as e:
         print("Erro /api/resultados:", e)
-        return jsonify({
-            "success": False,
-            "results": [],
-            "error": str(e)
-        })
+        return jsonify({"success": False, "results": [], "error": str(e)})
 
 
 @app.route("/api/status_radar", methods=["GET"])
 def api_status_radar():
     info = _resumo_status_radar()
-    return jsonify({"total_registros": info.get("total_registros", 0), "ultima_execucao": info.get("ultima_atualizacao")})
+    return jsonify({
+        "total_registros": info.get("total_registros", 0),
+        "ultima_execucao": info.get("ultima_atualizacao")
+    })
+
 
 # --- Alertas ---
 @app.route("/api/alertas", methods=["GET", "POST"])
@@ -221,46 +212,50 @@ def api_alertas():
     if request.method == "POST":
         data = request.get_json()
         alertas = _ler_alertas()
-        novo = {"id": str(uuid.uuid4())[:8], "origem": "FOR", "destino": data['destino'], "data_ida": data['data_ida'], "data_volta": data.get('data_volta',''), "preco_alvo": data['preco_alvo']}
+        novo = {
+            "id": str(uuid.uuid4())[:8],
+            "origem": "FOR",
+            "destino": data['destino'],
+            "data_ida": data['data_ida'],
+            "data_volta": data.get('data_volta', ''),
+            "preco_alvo": data['preco_alvo']
+        }
         alertas.append(novo)
         _salvar_alertas(alertas)
         return jsonify({"success": True})
+
     return jsonify({"success": True, "alertas": _ler_alertas()})
+
 
 @app.route("/api/alertas/<id>", methods=["DELETE"])
 def api_del_alerta(id):
     _salvar_alertas([a for a in _ler_alertas() if a['id'] != id])
     return jsonify({"success": True})
 
-# --- Testes ---
+
 @app.route("/api/test_telegram", methods=["POST"])
 def api_test_telegram():
-    try: enviar_mensagem_telegram("Test OK"); return jsonify({"success": True})
-    except: return jsonify({"success": False}), 500
+    try:
+        enviar_mensagem_telegram("Test OK")
+        return jsonify({"success": True})
+    except:
+        return jsonify({"success": False}), 500
+
 
 @app.route("/api/test_amadeus", methods=["POST"])
 def api_test_amadeus():
     try:
         token = AmadeusRotator("AUTO").get_token()
         return jsonify({"success": True, "token": token[:10] if token else None})
-    except: return jsonify({"success": False}), 500
+    except:
+        return jsonify({"success": False}), 500
+
 
 @app.route("/api/processar-texto", methods=["POST"])
 def api_processar():
     d = request.get_json()
     return jsonify(processar_texto_promocional(d.get("texto"), d.get("modo")))
 
-# --- Atalhos ---
-@app.route("/destinos", methods=["GET"])
-def a_dest(): return api_destinos()
-@app.route("/executar", methods=["POST"])
-def a_exec(): return api_executar()
-@app.route("/resultados", methods=["GET"])
-def a_res(): return api_resultados()
-@app.route("/status_radar", methods=["GET"])
-def a_stat(): return api_status_radar()
-@app.route("/alertas", methods=["GET"])
-def a_alert(): return api_alertas()
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
