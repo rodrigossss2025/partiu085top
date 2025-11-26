@@ -25,8 +25,10 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DOTENV_PATH = os.path.join(BASE_DIR, '.env')
 load_dotenv(dotenv_path=DOTENV_PATH)
 
+
 def log_info(msg):
     print(f"[{datetime.now()}] {msg}", flush=True)
+
 
 log_info("🚀 SERVIDOR INICIADO (Lendo resultados_v2.csv)")
 
@@ -71,6 +73,7 @@ def start_scheduler():
     except Exception as e:
         log_info(f"🚨 Erro agendador: {e}")
 
+
 if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug:
     threading.Thread(target=start_scheduler, daemon=True).start()
 
@@ -78,13 +81,15 @@ if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug:
 # 5. FUNÇÕES UTILITÁRIAS
 # ------------------------------------------------------
 def _ler_resultados() -> List[Dict[str, Any]]:
+    """Lê o CSV principal de resultados (resultados_v2.csv)."""
     if os.path.exists(RESULTADOS_CSV):
         try:
             with open(RESULTADOS_CSV, "r", encoding="utf-8") as f:
                 return list(csv.DictReader(f))
         except Exception as e:
-            log_info(f"⚠️ Erro ao ler CSV: {e}")
+            log_info(f"⚠️ Erro ao ler CSV de resultados: {e}")
     return []
+
 
 def _ler_alertas() -> List[Dict[str, Any]]:
     if not os.path.exists(ALERTAS_CSV_PATH):
@@ -92,8 +97,9 @@ def _ler_alertas() -> List[Dict[str, Any]]:
     try:
         with open(ALERTAS_CSV_PATH, mode='r', encoding='utf-8') as f:
             return list(csv.DictReader(f))
-    except:
+    except Exception:
         return []
+
 
 def _salvar_alertas(alertas: List[Dict[str, Any]]):
     colunas = ['id', 'origem', 'destino', 'data_ida', 'data_volta', 'preco_alvo']
@@ -105,21 +111,24 @@ def _salvar_alertas(alertas: List[Dict[str, Any]]):
     except Exception as e:
         log_info(f"Erro salvar alertas: {e}")
 
+
 def _resumo_status_radar() -> Dict[str, Any]:
     linhas = _ler_resultados()
     ultima = linhas[-1].get("timestamp") if linhas else None
     return {
         "total_registros": len(linhas),
         "ultima_atualizacao": ultima,
-        "intervalo_minutos": getattr(config_agendador, "INTERVALO_MINUTOS", 60)
+        "intervalo_minutos": getattr(config_agendador, "INTERVALO_MINUTOS", 60),
     }
 
 # ------------------------------------------------------
 # 6. ROTAS DA API
 # ------------------------------------------------------
 
+
 @app.route("/api/destinos", methods=["GET"])
 def api_destinos():
+    """Nova rota oficial de destinos (usada pelo front novo)."""
     caminho = DESTINOS_CSV_PATH
 
     if not os.path.exists(caminho):
@@ -129,13 +138,28 @@ def api_destinos():
     with open(caminho, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            destinos.append({
-                "iata": row.get("iata", "").upper(),
-                "cidade": row.get("cidade", ""),
-                "pais": row.get("pais", "")
-            })
+            destinos.append(
+                {
+                    "iata": row.get("iata", "").upper(),
+                    "cidade": row.get("cidade", ""),
+                    "pais": row.get("pais", ""),
+                }
+            )
 
     return jsonify({"success": True, "destinos": destinos})
+
+
+@app.route("/destinos", methods=["GET"])
+def destinos_sem_prefixo():
+    """
+    Rota de compatibilidade.
+
+    O frontend em produção está chamando
+    https://partiu085-api.onrender.com/destinos
+
+    Para não quebrar nada, espelhamos /api/destinos aqui.
+    """
+    return api_destinos()
 
 
 @app.route("/")
@@ -156,12 +180,16 @@ def api_executar():
     def _background_job():
         try:
             log_info("✈️ Executando orquestrador...")
-            executar_fluxo_voos(modo=modo, destinos_personalizados=destinos,
-                                data_ida=data_ida, data_volta=data_volta)
+            executar_fluxo_voos(
+                modo=modo,
+                destinos_personalizados=destinos,
+                data_ida=data_ida,
+                data_volta=data_volta,
+            )
             log_info("✅ Busca finalizada no CSV v2!")
             try:
                 enviar_mensagem_telegram("✅ Varredura manual concluída!")
-            except:
+            except Exception:
                 pass
 
         except Exception as exc:
@@ -173,37 +201,50 @@ def api_executar():
 
 @app.route("/api/resultados", methods=["GET"])
 def api_resultados():
+    """
+    Retorna os resultados para o frontend.
+
+    - Primeiro tenta usar data/resultados.json (formato novo, se existir).
+    - Se não encontrar ou der erro, faz fallback para resultados_v2.csv,
+      que é o arquivo usado hoje pelo orquestrador.
+    """
+    # 1) Tenta JSON "novo"
+    caminho_json = os.path.join(DATA_DIR, "resultados.json")
+    if os.path.exists(caminho_json):
+        try:
+            with open(caminho_json, "r", encoding="utf-8") as f:
+                dados = json.load(f)
+
+            lista = (
+                dados.get("results")
+                or dados.get("resultados")
+                or dados.get("lista")
+                or dados.get("ofertas")
+                or []
+            )
+
+            return jsonify({"success": True, "results": lista})
+        except Exception as e:
+            log_info(f"⚠️ Erro lendo resultados.json: {e}")
+
+    # 2) Fallback: CSV v2
     try:
-        caminho = os.path.join(DATA_DIR, "resultados.json")
-
-        if not os.path.exists(caminho):
-            return jsonify({"success": True, "results": []})
-
-        with open(caminho, "r", encoding="utf-8") as f:
-            dados = json.load(f)
-
-        lista = (
-            dados.get("results") or
-            dados.get("resultados") or
-            dados.get("lista") or
-            dados.get("ofertas") or
-            []
-        )
-
-        return jsonify({"success": True, "results": lista})
-
+        linhas = _ler_resultados()
+        return jsonify({"success": True, "results": linhas})
     except Exception as e:
-        print("Erro /api/resultados:", e)
-        return jsonify({"success": False, "results": [], "error": str(e)})
+        log_info(f"🚨 Erro /api/resultados (CSV): {e}")
+        return jsonify({"success": False, "results": [], "error": str(e)}), 500
 
 
 @app.route("/api/status_radar", methods=["GET"])
 def api_status_radar():
     info = _resumo_status_radar()
-    return jsonify({
-        "total_registros": info.get("total_registros", 0),
-        "ultima_execucao": info.get("ultima_atualizacao")
-    })
+    return jsonify(
+        {
+            "total_registros": info.get("total_registros", 0),
+            "ultima_execucao": info.get("ultima_atualizacao"),
+        }
+    )
 
 
 # --- Alertas ---
@@ -215,10 +256,10 @@ def api_alertas():
         novo = {
             "id": str(uuid.uuid4())[:8],
             "origem": "FOR",
-            "destino": data['destino'],
-            "data_ida": data['data_ida'],
-            "data_volta": data.get('data_volta', ''),
-            "preco_alvo": data['preco_alvo']
+            "destino": data["destino"],
+            "data_ida": data["data_ida"],
+            "data_volta": data.get("data_volta", ""),
+            "preco_alvo": data["preco_alvo"],
         }
         alertas.append(novo)
         _salvar_alertas(alertas)
@@ -229,7 +270,7 @@ def api_alertas():
 
 @app.route("/api/alertas/<id>", methods=["DELETE"])
 def api_del_alerta(id):
-    _salvar_alertas([a for a in _ler_alertas() if a['id'] != id])
+    _salvar_alertas([a for a in _ler_alertas() if a["id"] != id])
     return jsonify({"success": True})
 
 
@@ -238,7 +279,7 @@ def api_test_telegram():
     try:
         enviar_mensagem_telegram("Test OK")
         return jsonify({"success": True})
-    except:
+    except Exception:
         return jsonify({"success": False}), 500
 
 
@@ -247,7 +288,7 @@ def api_test_amadeus():
     try:
         token = AmadeusRotator("AUTO").get_token()
         return jsonify({"success": True, "token": token[:10] if token else None})
-    except:
+    except Exception:
         return jsonify({"success": False}), 500
 
 
