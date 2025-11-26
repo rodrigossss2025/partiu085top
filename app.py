@@ -113,13 +113,39 @@ def _salvar_alertas(alertas: List[Dict[str, Any]]):
 
 
 def _resumo_status_radar() -> Dict[str, Any]:
-    linhas = _ler_resultados()
-    ultima = linhas[-1].get("timestamp") if linhas else None
-    return {
-        "total_registros": len(linhas),
-        "ultima_atualizacao": ultima,
-        "intervalo_minutos": getattr(config_agendador, "INTERVALO_MINUTOS", 60),
-    }
+    caminho_json = os.path.join(DATA_DIR, "resultados.json")
+
+    if not os.path.exists(caminho_json):
+        return {
+            "total_registros": 0,
+            "ultima_atualizacao": None
+        }
+
+    try:
+        with open(caminho_json, "r", encoding="utf-8") as f:
+            dados = json.load(f)
+
+        lista = (
+            dados.get("results")
+            or dados.get("resultados")
+            or dados.get("lista")
+            or dados.get("ofertas")
+            or []
+        )
+
+        ultima = lista[-1].get("timestamp") if lista else None
+
+        return {
+            "total_registros": len(lista),
+            "ultima_atualizacao": ultima
+        }
+    except Exception as e:
+        print("Erro lendo status do radar:", e)
+        return {
+            "total_registros": 0,
+            "ultima_atualizacao": None
+        }
+
 
 # ------------------------------------------------------
 # 6. ROTAS DA API
