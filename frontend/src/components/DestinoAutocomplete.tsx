@@ -10,21 +10,21 @@ export function DestinoAutocomplete({ value, onChange }: Props) {
   const [lista, setLista] = useState<any[]>([]);
   const [filtrados, setFiltrados] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
-  const blurLock = useRef(false); // evita fechar ao clicar
+  const blurLock = useRef(false);
 
-  // ---- Carrega uma única vez
+  // ---- Carrega lista do backend uma vez
   useEffect(() => {
     async function load() {
       const resp = await getDestinos();
-      const destinos = resp?.destinos || resp?.results || [];
+      const destinos = resp?.destinos || [];
       setLista(destinos);
     }
     load();
   }, []);
 
-  // ---- Debounce
   const debounceTimer = useRef<any>(null);
 
+  // ---- Filtro atualizado: busca por IATA OU NOME
   const filtrar = (texto: string) => {
     const termo = texto.split(",").pop()?.trim().toUpperCase() || "";
 
@@ -34,28 +34,16 @@ export function DestinoAutocomplete({ value, onChange }: Props) {
     }
 
     const listaFiltrada = lista
-      .map((d) => ({
-        iata:
-          d.iata ||
-          d.IATA ||
-          d.codigo ||
-          d.sigla ||
-          d.code ||
-          d.iata_code ||
-          "",
-        cidade:
-          d.cidade ||
-          d.city ||
-          d.nome ||
-          d.nome_cidade ||
-          d.destino ||
-          "",
+      .map((d: any) => ({
+        iata: d.iata?.toUpperCase() || "",
+        cidade: d.cidade || "",
+        pais: d.pais || "",
+        fullName: `${d.cidade} (${d.pais})`,
       }))
-      .filter((d) => d.iata)
-      .filter(
-        (d) =>
-          d.iata.toUpperCase().includes(termo) ||
-          d.cidade.toUpperCase().includes(termo)
+      .filter((d) =>
+        d.iata.includes(termo) ||
+        d.cidade.toUpperCase().includes(termo) ||
+        d.fullName.toUpperCase().includes(termo)
       )
       .slice(0, 12);
 
@@ -105,8 +93,8 @@ export function DestinoAutocomplete({ value, onChange }: Props) {
               }}
             >
               <span className="font-mono text-orange-300">{item.iata}</span>
-              <span className="text-slate-300 ml-2 truncate">
-                {item.cidade}
+              <span className="text-slate-300 ml-3 truncate">
+                {item.cidade} ({item.pais})
               </span>
             </button>
           ))}
