@@ -72,25 +72,33 @@ class AmadeusRotator:
         except Exception as e:
             return []
 
-    def buscar_voo_exato(self, origem, destino, data):
+    def buscar_voo_exato(self, origem, destino, data_ida, data_volta=None):
         token = self.get_token()
-        if not token: return []
+        if not token:
+            return []
 
-        # URL CHUMBADA AQUI TAMBÉM
         url = 'https://api.amadeus.com/v2/shopping/flight-offers'
 
         headers = {'Authorization': f'Bearer {token}'}
+
         params = {
             'originLocationCode': origem,
             'destinationLocationCode': destino,
-            'departureDate': data,
+            'departureDate': data_ida,
             'adults': 1,
             'nonStop': 'false',
             'currencyCode': 'BRL',
             'max': 5
         }
+
+        # 👉 Se o usuário selecionou VOLTA, adiciona no request
+        if data_volta:
+            params['returnDate'] = data_volta
+
         try:
             print(f"✈️ Buscando voo exato em: {url}")
+            print(f"➡️ Params enviados: {params}")
+
             response = requests.get(url, headers=headers, params=params)
             if response.status_code == 200:
                 return response.json().get('data', [])
