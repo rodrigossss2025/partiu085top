@@ -74,7 +74,7 @@ def formatar_msg_telegram(oferta):
 
 
 def _fluxo_manual_exato(destinos, data_ida, data_volta=None):
-    print(f"🚀 [MANUAL] Iniciando para: {destinos} (Ida: {data_ida})")
+    print(f"🚀 [MANUAL] Iniciando para: {destinos} (Ida: {data_ida} | Volta: {data_volta})")
     origem = "FOR"
     ofertas = []
 
@@ -82,23 +82,32 @@ def _fluxo_manual_exato(destinos, data_ida, data_volta=None):
         try:
             print(f"🔎 Consultando Amadeus para {destino}...")
 
-            # --- CORREÇÃO AQUI ---
-            # O rotator antigo NÃO aceita data_volta. Sempre busca só ida.
-            resultados = amadeus_client.buscar_voo_exato(origem, destino, data_ida)
-            # -----------------------
+            # Se VOLTA foi preenchida → buscar ida+volta
+            resultados = amadeus_client.buscar_voo_exato(origem, destino, data_ida, data_volta)
 
             if not resultados:
                 print(f"⚠️ Sem voos para {destino}")
                 continue
 
             melhor_voo = resultados[0]
-            preco = float(melhor_voo['price']['grandTotal'])
-            moeda = melhor_voo['price']['currency']
 
-            # Link continua funcionando com ida/volta se o front mandar
+            price_info = melhor_voo.get("price", {})
+
+            # DEBUG DE PREÇOS
+            print("💰 DEBUG PREÇOS AMADEUS")
+            print("price.base:", price_info.get("base"))
+            print("price.total:", price_info.get("total"))
+            print("price.grandTotal:", price_info.get("grandTotal"))
+            print("price.currency:", price_info.get("currency"))
+            print("price.full:", price_info)
+
+            preco = float(price_info.get("grandTotal", 0))
+            moeda = price_info.get("currency", "BRL")
+
             link = gerar_link_google_flights(origem, destino, data_ida, data_volta)
 
-            print(f"✅ [ACHEI] {destino}: {moeda} {preco:.2f}")
+            print(f"✅ [ACHEI] {destino}: {moeda} {preco:.2f} (round-trip)" if data_volta else
+                  f"✅ [ACHEI] {destino}: {moeda} {preco:.2f} (one-way)")
 
             oferta = {
                 "origem": origem,
@@ -119,6 +128,7 @@ def _fluxo_manual_exato(destinos, data_ida, data_volta=None):
             print(f"🚨 Erro ao processar {destino}: {e}")
 
     return ofertas
+
 
 
 # Mantendo o automático simples e funcional

@@ -201,6 +201,10 @@ def api_executar():
     destinos = data.get("destinos") or []
     data_ida = data.get("data_ida")
     data_volta = data.get("data_volta")
+    print("📩 DEBUG FRONTEND → BACKEND")
+    print("destinos recebidos:", destinos)
+    print("data_ida recebida:", data_ida)
+    print("data_volta recebida:", data_volta)
 
     log_info(f"🔔 Busca Iniciada: {destinos}")
 
