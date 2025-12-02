@@ -1,12 +1,13 @@
 import csv
 import os
 from datetime import datetime
-from backend.core_amadeus.rotator import amadeus_client
+from backend.core_amadeus.rotator_antigo import amadeus_client
 from backend.agendador_front.notificacoes import enviar_mensagem_telegram
 
-DIRETORIO_BASE = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-CAMINHO_CSV_INPUT = os.path.join(DIRETORIO_BASE, 'data', 'coletas_filtrado_iata.csv')
-CAMINHO_CSV_OUTPUT = os.path.join(DIRETORIO_BASE, 'data', 'resultados_v2.csv')
+DATA_DIR = "/data"
+
+CAMINHO_CSV_INPUT = os.path.join(DATA_DIR, "coletas_filtrado_iata.csv")
+CAMINHO_CSV_OUTPUT = os.path.join(DATA_DIR, "resultados_v2.csv")
 
 
 def gerar_link_google_flights(origem, destino, data_ida, data_volta=None):

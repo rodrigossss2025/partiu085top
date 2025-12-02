@@ -16,8 +16,8 @@ env/
 #Arquivos de dados
 
 # Arquivos de dados
-data/*
-!data/coletas_filtrado_iata.csv
+# data/*
+# !data/coletas_filtrado_iata.csv
 
 
 Arquivos de ambiente - CRUCIAL para segurança!

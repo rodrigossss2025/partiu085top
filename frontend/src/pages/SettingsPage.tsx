@@ -1,16 +1,17 @@
-// frontend/src/pages/SettingsPage.tsx
-
 import React, { useEffect, useState } from "react";
 import {
   getStatusRadar,
   iniciarAgendador,
   pausarAgendador,
+  executarAgendadorAgora,
 } from "../services/backendService";
 import { GlassCard } from "@/components/GlassCard";
 
 export const SettingsPage: React.FC = () => {
   const [status, setStatus] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [executandoAgora, setExecutandoAgora] = useState(false);
+  const [resultadoAgora, setResultadoAgora] = useState<any>(null);
 
   async function fetchStatus() {
     try {
@@ -33,6 +34,20 @@ export const SettingsPage: React.FC = () => {
     await pausarAgendador();
     await fetchStatus();
     setLoading(false);
+  }
+
+  async function handleRodarAgora() {
+    setExecutandoAgora(true);
+    setResultadoAgora(null);
+
+    try {
+      const data = await executarAgendadorAgora();
+      setResultadoAgora(data);
+    } catch (err) {
+      console.error("Erro ao executar agora:", err);
+    }
+
+    setExecutandoAgora(false);
   }
 
   useEffect(() => {
@@ -69,7 +84,24 @@ export const SettingsPage: React.FC = () => {
           >
             Pausar
           </button>
+
+          <button
+            onClick={handleRodarAgora}
+            disabled={executandoAgora}
+            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-md text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {executandoAgora ? "Executando..." : "Rodar Agora"}
+          </button>
         </div>
+
+        {resultadoAgora && (
+          <div className="mt-4 p-3 bg-black/40 text-gray-200 rounded-lg text-sm">
+            <p className="font-bold mb-1">Resultado:</p>
+            <pre className="whitespace-pre-wrap">
+              {JSON.stringify(resultadoAgora, null, 2)}
+            </pre>
+          </div>
+        )}
       </GlassCard>
     </div>
   );

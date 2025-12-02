@@ -122,3 +122,11 @@ export async function postProcessarTexto(texto: string, modo: string) {
     body: JSON.stringify({ texto, modo }),
   });
 }
+
+export async function executarAgendadorAgora() {
+  const res = await fetch("/api/agendador/agora", {
+    method: "POST",
+  });
+  return res.json();
+}
+

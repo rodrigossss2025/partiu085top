@@ -44,6 +44,7 @@ try:
     from backend.core_amadeus.rotator import AmadeusRotator
     import backend.config_agendador as config_agendador
     from backend.agendador_front import scheduler
+    from backend.agendador_front.scheduler import executar_agora
     from backend.core_milhas.processador_texto import processar_texto_promocional
 except ImportError as e:
     log_info(f"🚨 Erro crítico de importação: {e}")
@@ -52,8 +53,8 @@ except ImportError as e:
 # ------------------------------------------------------
 # 3. SETUP FLASK E DIRETÓRIOS
 # ------------------------------------------------------
-DATA_DIR = os.path.join(BASE_DIR, "data")
-os.makedirs(DATA_DIR, exist_ok=True)
+DATA_DIR = "/data"
+
 
 RESULTADOS_CSV = os.path.join(DATA_DIR, "resultados_v2.csv")
 ALERTAS_CSV_PATH = os.path.join(DATA_DIR, "alertas_fixos.csv")
@@ -326,3 +327,8 @@ def api_processar():
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
+
+@app.route("/api/agendador/agora", methods=["POST"])
+def api_agendador_agora():
+    resultado = executar_agora()
+    return jsonify(resultado)

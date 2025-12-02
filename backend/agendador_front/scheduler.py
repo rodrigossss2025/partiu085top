@@ -81,6 +81,34 @@ def job_robo_sniper():
     print("--- 🏁 Job 2 Finalizado ---")
 
 
+def job_robo_agora():
+    """JOB 3: Execução manual do robô (rodar agora)."""
+    print("⚡ [AGORA] Execução manual iniciada...")
+
+    try:
+        # Usa o mesmo modo do Robô Automático (modo leve)
+        resultado = executar_fluxo_voos(modo="AUTO")
+
+        print("⚡ [AGORA] Execução manual finalizada.")
+        return {
+            "success": True,
+            "message": "Execução manual concluída.",
+            "resultado": resultado
+        }
+    except Exception as e:
+        print(f"❌ Erro na execução manual: {e}")
+        return {
+            "success": False,
+            "message": f"Erro ao executar manualmente: {e}"
+        }
+
+
+def executar_agora():
+    """Função pública para chamar o robô manualmente."""
+    print("⚡ Solicitado: Rodar Agendador Agora.")
+    return job_robo_agora()
+
+
 def iniciar_agendador():
     """Inicia os dois agendadores (chamado pela sua SettingsPage)."""
     global _scheduler
