@@ -74,7 +74,6 @@ def formatar_msg_telegram(oferta):
 
 
 def _fluxo_manual_exato(destinos, data_ida, data_volta=None):
-    # Usando print normal para garantir que apareça no log
     print(f"🚀 [MANUAL] Iniciando para: {destinos} (Ida: {data_ida})")
     origem = "FOR"
     ofertas = []
@@ -82,7 +81,11 @@ def _fluxo_manual_exato(destinos, data_ida, data_volta=None):
     for destino in destinos:
         try:
             print(f"🔎 Consultando Amadeus para {destino}...")
-            resultados = amadeus_client.buscar_voo_exato(origem, destino, data_ida, data_volta)
+
+            # --- CORREÇÃO AQUI ---
+            # O rotator antigo NÃO aceita data_volta. Sempre busca só ida.
+            resultados = amadeus_client.buscar_voo_exato(origem, destino, data_ida)
+            # -----------------------
 
             if not resultados:
                 print(f"⚠️ Sem voos para {destino}")
@@ -91,16 +94,24 @@ def _fluxo_manual_exato(destinos, data_ida, data_volta=None):
             melhor_voo = resultados[0]
             preco = float(melhor_voo['price']['grandTotal'])
             moeda = melhor_voo['price']['currency']
+
+            # Link continua funcionando com ida/volta se o front mandar
             link = gerar_link_google_flights(origem, destino, data_ida, data_volta)
 
             print(f"✅ [ACHEI] {destino}: {moeda} {preco:.2f}")
 
             oferta = {
-                "origem": origem, "destino": destino,
-                "data_ida": data_ida, "data_volta": data_volta if data_volta else "",
-                "preco": preco, "moeda": moeda, "link": link, "modo": "MANUAL",
+                "origem": origem,
+                "destino": destino,
+                "data_ida": data_ida,
+                "data_volta": data_volta if data_volta else "",
+                "preco": preco,
+                "moeda": moeda,
+                "link": link,
+                "modo": "MANUAL",
                 "baseline_google": 99999
             }
+
             ofertas.append(oferta)
             salvar_oferta_csv(oferta)
 

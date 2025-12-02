@@ -325,10 +325,12 @@ def api_processar():
     return jsonify(processar_texto_promocional(d.get("texto"), d.get("modo")))
 
 
-if __name__ == "__main__":
-    app.run(debug=True, port=5000)
-
 @app.route("/api/agendador/agora", methods=["POST"])
 def api_agendador_agora():
     resultado = executar_agora()
     return jsonify(resultado)
+
+
+if __name__ == "__main__":
+    app.run(debug=True, port=5000)
+
