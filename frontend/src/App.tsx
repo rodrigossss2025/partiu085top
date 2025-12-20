@@ -1,7 +1,7 @@
 import { Routes, Route, HashRouter } from 'react-router-dom';
 // ⚠️ CORREÇÃO: Adicionando explicitamente o sufixo .tsx em todas as importações para resolver o erro de compilação
 import { RadarPage } from './pages/RadarPage.tsx';
-import { ResultsPage } from './pages/ResultsPage.tsx';
+import { ResultsPage } from './pages/ResultsPage';
 import { SettingsPage } from './pages/SettingsPage.tsx';
 import { BottomNavBar } from './components/BottomNavBar.tsx';
 import { MillasLabPage } from './pages/MillasLabPage.tsx';
