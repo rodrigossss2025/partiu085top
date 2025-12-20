@@ -51,7 +51,7 @@ function processarResultados(listaBruta: any[], filtro: string) {
   const termoFiltro = filtro.trim().toUpperCase();
 
   const listaFiltrada = termoFiltro
-    ? listaBruta.filter((o) =>
+    ? listaBruta.filter((o: any) =>
         String(o.destino || o.destination || o.destino_iata || "")
           .toUpperCase()
           .includes(termoFiltro)
@@ -61,7 +61,7 @@ function processarResultados(listaBruta: any[], filtro: string) {
   const hojeArr: any[] = [];
   const ontemArr: any[] = [];
 
-  listaFiltrada.forEach((oferta) => {
+  listaFiltrada.forEach((oferta: any) => {
     const precoNum = normalizePreco(oferta.preco);
     const baselineNum = Number(oferta.baseline) || 0;
 
@@ -101,6 +101,7 @@ function processarResultados(listaBruta: any[], filtro: string) {
     }
   });
 
+  // CAST EXPLÍCITO — mata TS2362/2363
   hojeArr.sort((a: any, b: any) => Number(a.preco) - Number(b.preco));
   ontemArr.sort((a: any, b: any) => Number(a.preco) - Number(b.preco));
 
@@ -192,7 +193,6 @@ export function ResultsPage() {
 
   return (
     <div className="space-y-10 p-6">
-      {/* CABEÇALHO */}
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center space-x-3 mb-2">
@@ -209,7 +209,6 @@ export function ResultsPage() {
         </div>
       </div>
 
-      {/* FILTRO */}
       <div className="relative">
         <MagnifyingGlassIcon className="h-5 w-5 text-gray-500 absolute left-4 top-1/2 -translate-y-1/2" />
         <input
@@ -220,7 +219,6 @@ export function ResultsPage() {
         />
       </div>
 
-      {/* RESULTADOS */}
       {loading ? (
         <div className="text-center py-20 text-gray-500">Carregando…</div>
       ) : totalAtivo === 0 ? (
@@ -230,25 +228,15 @@ export function ResultsPage() {
         </div>
       ) : (
         <>
-          {rarasHoje.length > 0 && (
-            <Section title="🚨 OFERTAS RARAS (≤ 60%)" lista={rarasHoje} />
-          )}
-          {excelentesHoje.length > 0 && (
-            <Section title="🔥 Imperdíveis (até 80%)" lista={excelentesHoje} />
-          )}
-          {boasHoje.length > 0 && (
-            <Section title="💡 Boas oportunidades" lista={boasHoje} />
-          )}
-          {manuaisHoje.length > 0 && (
-            <Section title="👤 Buscas Manuais" lista={manuaisHoje} />
-          )}
-          {(excelentesOntem.length > 0 || boasOntem.length > 0) && (
-            <Section
-              title="⏳ Ontem"
-              lista={[...excelentesOntem, ...boasOntem]}
-              faded
-            />
-          )}
+          <Section title="🚨 OFERTAS RARAS" lista={rarasHoje} />
+          <Section title="🔥 Imperdíveis" lista={excelentesHoje} />
+          <Section title="💡 Boas oportunidades" lista={boasHoje} />
+          <Section title="👤 Buscas Manuais" lista={manuaisHoje} />
+          <Section
+            title="⏳ Ontem"
+            lista={[...excelentesOntem, ...boasOntem]}
+            faded
+          />
         </>
       )}
     </div>
@@ -266,6 +254,8 @@ function Section({
   lista: any[];
   faded?: boolean;
 }) {
+  if (!lista || lista.length === 0) return null;
+
   return (
     <section className={faded ? "opacity-80" : ""}>
       <h2 className="text-xl font-bold text-white mb-4">{title}</h2>
