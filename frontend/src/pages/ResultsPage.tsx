@@ -6,18 +6,21 @@ import {
 } from "@heroicons/react/24/outline";
 import { getResultados } from "../services/backendService";
 import { FlightCard } from "../components/FlightCard";
-import type { Oferta as OfertaOriginal } from "../types";
 
-/* =================== TIPAGEM LOCAL =================== */
+/* =================== TIPAGEM LOCAL (ISOLADA) =================== */
 
-interface Oferta extends OfertaOriginal {
+interface Oferta {
+  origem?: string;
+  destino?: string;
+  destino_iata?: string;
+  destination?: string;
+  modo?: string;
+  baseline?: number | string;
   preco: number;
   percentual_baseline: number | null;
-}
-
-interface OfertasAgrupadas {
-  hoje: Oferta[];
-  ontem: Oferta[];
+  timestamp?: string;
+  data_hora?: string;
+  created_at?: string;
 }
 
 /* =================== HELPERS =================== */
@@ -52,9 +55,9 @@ function normalizePreco(valor: any): number {
 /* =================== PROCESSADOR =================== */
 
 function processarResultados(
-  listaBruta: OfertaOriginal[],
+  listaBruta: any[],
   filtro: string
-): OfertasAgrupadas {
+): { hoje: Oferta[]; ontem: Oferta[] } {
   const hoje = new Date();
   const ontem = new Date();
   ontem.setDate(ontem.getDate() - 1);
@@ -81,6 +84,7 @@ function processarResultados(
     const precoNum = normalizePreco(oferta.preco);
     const baselineNum = Number(oferta.baseline) || 0;
 
+    // AUTO: não exibe acima do baseline
     if (
       oferta.modo === "AUTO" &&
       baselineNum > 0 &&
@@ -117,8 +121,8 @@ function processarResultados(
     }
   });
 
-  ofertasHoje.sort((a, b) => a.preco - b.preco);
-  ofertasOntem.sort((a, b) => a.preco - b.preco);
+  ofertasHoje.sort((a, b) => Number(a.preco) - Number(b.preco));
+  ofertasOntem.sort((a, b) => Number(a.preco) - Number(b.preco));
 
   return { hoje: ofertasHoje, ontem: ofertasOntem };
 }
@@ -126,7 +130,7 @@ function processarResultados(
 /* =================== PAGE =================== */
 
 export function ResultsPage() {
-  const [allOfertas, setAllOfertas] = useState<OfertaOriginal[]>([]);
+  const [allOfertas, setAllOfertas] = useState<any[]>([]);
   const [filter, setFilter] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -247,33 +251,27 @@ export function ResultsPage() {
       ) : (
         <>
           {rarasHoje.length > 0 && (
-            <Section title="🚨 OFERTAS RARAS (≤ 60%)">
-              {rarasHoje}
-            </Section>
+            <Section title="🚨 OFERTAS RARAS (≤ 60%)" ofertas={rarasHoje} />
           )}
 
           {excelentesHoje.length > 0 && (
-            <Section title="🔥 Imperdíveis (até 80%)">
-              {excelentesHoje}
-            </Section>
+            <Section title="🔥 Imperdíveis (até 80%)" ofertas={excelentesHoje} />
           )}
 
           {boasHoje.length > 0 && (
-            <Section title="💡 Boas oportunidades">
-              {boasHoje}
-            </Section>
+            <Section title="💡 Boas oportunidades" ofertas={boasHoje} />
           )}
 
           {manuaisHoje.length > 0 && (
-            <Section title="👤 Buscas Manuais">
-              {manuaisHoje}
-            </Section>
+            <Section title="👤 Buscas Manuais" ofertas={manuaisHoje} />
           )}
 
           {(excelentesOntem.length > 0 || boasOntem.length > 0) && (
-            <Section title="⏳ Ontem" faded>
-              {[...excelentesOntem, ...boasOntem]}
-            </Section>
+            <Section
+              title="⏳ Ontem"
+              ofertas={[...excelentesOntem, ...boasOntem]}
+              faded
+            />
           )}
         </>
       )}
@@ -285,18 +283,18 @@ export function ResultsPage() {
 
 function Section({
   title,
-  children,
+  ofertas,
   faded,
 }: {
   title: string;
-  children: Oferta[];
+  ofertas: Oferta[];
   faded?: boolean;
 }) {
   return (
     <section className={faded ? "opacity-80" : ""}>
       <h2 className="text-xl font-bold text-white mb-4">{title}</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-        {children.map((voo, i) => (
+        {ofertas.map((voo, i) => (
           <FlightCard key={i} voo={voo} />
         ))}
       </div>
