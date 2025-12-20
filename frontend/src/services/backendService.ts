@@ -1,16 +1,12 @@
 // frontend/src/services/backendService.ts
 
-// Detecta ambiente local corretamente
-const isLocal =
-  typeof window !== "undefined" &&
-  (
-    window.location.hostname === "localhost" ||
-    window.location.hostname.startsWith("127.")
-  );
-
-const API_BASE_URL = isLocal
-  ? "http://127.0.0.1:5000/api"
-  : "https://partiu085-api.onrender.com/api";
+/**
+ * Backend base URL
+ * Definido exclusivamente por variável de ambiente (Vercel / .env)
+ * Exemplo:
+ *   VITE_API_URL=https://partiu085top-5kge.onrender.com
+ */
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 console.log("🔗 Conectando Backend em:", API_BASE_URL);
 
@@ -26,23 +22,22 @@ async function request(endpoint: string, options: RequestInit = {}) {
     });
 
     if (!response.ok) {
-      console.error(`❌ Erro HTTP em ${endpoint}:`, response.status);
       const raw = await response.text();
-      console.error("Resposta bruta:", raw.slice(0, 500));
+      console.error(`❌ Erro HTTP em ${endpoint}:`, response.status, raw);
       throw new Error(`Erro HTTP ${response.status}`);
     }
 
     const contentType = response.headers.get("content-type") || "";
     if (!contentType.includes("application/json")) {
       const raw = await response.text();
-      console.error("Resposta NÃO-JSON recebida:", raw.slice(0, 500));
+      console.error("❌ Resposta não-JSON:", raw.slice(0, 500));
       throw new Error("Resposta não é JSON");
     }
 
     return await response.json();
   } catch (error) {
-    console.error(`❌ Erro em ${endpoint}:`, error);
-    return { success: false, message: "Erro de conexão.", results: [] };
+    console.error(`❌ Falha ao acessar ${endpoint}:`, error);
+    return { success: false, results: [], message: "Erro de conexão com o backend." };
   }
 }
 
@@ -54,7 +49,7 @@ export async function postExecutarManual(
   dataIda: string,
   dataVolta?: string
 ) {
-  return await request("/executar", {
+  return await request("/api/executar", {
     method: "POST",
     body: JSON.stringify({
       modo,
@@ -68,76 +63,74 @@ export async function postExecutarManual(
 // =================== RESULTADOS ===================
 
 export async function getResultados() {
-  const t = Date.now(); // evita cache
-  return await request(`/resultados?t=${t}`);
+  const t = Date.now(); // evita cache agressivo
+  return await request(`/api/resultados?t=${t}`);
 }
 
-// =================== DESTINOS ===================
+// =================== DESTINOS (AUTOCOMPLETE) ===================
 
 export async function getDestinos() {
-  return await request("/destinos");
+  return await request("/api/destinos");
 }
 
 // =================== STATUS DO RADAR / AGENDADOR ===================
 
 export async function getStatusRadar() {
-  // backend expõe /api/status_radar (sem /agendador)
-  return await request("/status_radar");
+  return await request("/api/status_radar");
 }
 
-// hoje o agendador sobe automaticamente com o backend;
-// mantemos as funções apenas para não quebrar a UI
+// O agendador é automático no backend (Render)
 export async function iniciarAgendador() {
-  console.warn("iniciarAgendador(): controle manual desabilitado; agendador é automático.");
-  return { success: false, message: "Agendador inicia automaticamente com o backend." };
+  console.warn("iniciarAgendador(): agendador inicia automaticamente no backend.");
+  return { success: false, message: "Agendador é automático." };
 }
 
 export async function pausarAgendador() {
-  console.warn("pausarAgendador(): controle manual desabilitado; agendador é automático.");
-  return { success: false, message: "Pausa remota do agendador indisponível." };
+  console.warn("pausarAgendador(): pausa remota não suportada.");
+  return { success: false, message: "Pausa remota indisponível." };
 }
 
 // =================== ALERTAS ===================
 
 export async function getAlertas() {
-  return await request("/alertas");
+  return await request("/api/alertas");
 }
 
 export async function addAlerta(data: any) {
-  return await request("/alertas", {
+  return await request("/api/alertas", {
     method: "POST",
     body: JSON.stringify(data),
   });
 }
 
 export async function deleteAlerta(id: string) {
-  return await request(`/alertas/${id}`, { method: "DELETE" });
+  return await request(`/api/alertas/${id}`, {
+    method: "DELETE",
+  });
 }
 
-// =================== LAB MILLAS / PROCESSADOR DE TEXTO ===================
+// =================== LAB MILHAS / PROCESSADOR DE TEXTO ===================
 
 export async function postProcessarTexto(texto: string, modo: string) {
-  return await request("/processar-texto", {
+  return await request("/api/processar-texto", {
     method: "POST",
     body: JSON.stringify({ texto, modo }),
   });
 }
 
+// =================== AGENDADOR (EXECUÇÃO MANUAL) ===================
+
 export async function executarAgendadorAgora() {
-  const res = await fetch("/api/agendador/agora", {
+  return await request("/api/agendador/agora", {
     method: "POST",
   });
-  return res.json();
 }
 
 // =================== TELEGRAM ===================
 
 export async function enviarOfertaTelegram(oferta: any) {
-  return await request("/telegram/oferta", {
+  return await request("/api/telegram/oferta", {
     method: "POST",
     body: JSON.stringify(oferta),
   });
 }
-
-
-
