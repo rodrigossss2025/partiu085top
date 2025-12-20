@@ -1,4 +1,6 @@
+# =====================
 # Logs
+# =====================
 logs
 *.log
 npm-debug.log*
@@ -7,14 +9,26 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-
-
+# =====================
+# Node / Frontend
+# =====================
 node_modules
 dist
 dist-ssr
 *.local
 
-# Editor directories and files
+# =====================
+# Backend / Dados
+# =====================
+.env
+data/*
+!data/coletas_filtrado_iata.csv
+!data/coletas_completo.csv
+
+
+# =====================
+# Editor / SO
+# =====================
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -24,3 +38,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+
+backend/core_milhas/data/

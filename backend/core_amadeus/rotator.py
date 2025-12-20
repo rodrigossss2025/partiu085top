@@ -80,28 +80,67 @@ class AmadeusRotator:
 
             try:
                 log_force(f"🔎 Tentando API com {cred['name']}...")
-                response = requests.get(endpoint_url, headers={"Authorization": f"Bearer {token}"}, params=params,
-                                        timeout=25)
+                response = requests.get(
+                    endpoint_url,
+                    headers={"Authorization": f"Bearer {token}"},
+                    params=params,
+                    timeout=25
+                )
 
                 if response.status_code == 200:
                     return response.json()
-                elif response.status_code in [401, 403, 429, 500, 503]:
-                    log_force(f"⚠️ Erro API ({response.status_code}), tentando próxima...")
+
+                elif response.status_code == 404:
+                    # ✅ SEM RESULTADO (normal)
+                    return {"data": []}
+
+                elif response.status_code in (401, 403):
+                    log_force("🔑 Token inválido, rotacionando chave...")
                     self._rotate_credential()
+
+                elif response.status_code in (429, 500, 503):
+                    log_force(f"⚠️ Erro temporário {response.status_code}, tentando outra chave...")
+                    self._rotate_credential()
+
                 else:
-                    log_force(f"❌ Erro fatal API ({response.status_code}): {response.text}")
-                    return None
+                    log_force(f"❌ Erro inesperado {response.status_code}: {response.text}")
+                    return {"data": []}
+
+            except requests.exceptions.Timeout:
+                log_force("⏱️ Timeout, tentando próxima chave...")
+                self._rotate_credential()
+
             except Exception as e:
-                log_force(f"❌ Timeout/Erro Conexão: {e}")
+                log_force(f"❌ Erro conexão: {e}")
                 self._rotate_credential()
 
         log_force("❌ Todas as chaves falharam.")
-        return None
+        return {"data": []}
+
 
     def buscar_datas_baratas(self, origem, destino):
-        return self._make_request("https://api.amadeus.com/v1/shopping/flight-dates",
-                                  {"origin": origem, "destination": destino, "viewBy": "DATE"}).get("data",
-                                                                                                    []) if self.credentials else []
+        try:
+            # CORREÇÃO 1: Usar o método _make_request (que lida com tokens/rotator)
+            # URL correta para buscar datas baratas é "/v1/shopping/flight-dates"
+            endpoint = "https://api.amadeus.com/v1/shopping/flight-dates"
+            params = {"origin": origem, "destination": destino, "viewBy": "DATE"}
+
+            # response_data pode ser None se _make_request falhar
+            response_data = self._make_request(endpoint, params)
+
+            # CORREÇÃO 2: Tratar o caso de response_data ser None antes de chamar .get()
+            if response_data is None:
+                print(f"❌ Rotator: Falha na busca de {origem}->{destino}. Resposta da API foi None.")
+                return None  # Retorna None para que o orquestrador trate
+
+            # Retorna a lista de dados ou uma lista vazia se 'data' não existir (Isso resolve o NoneType)
+            return response_data.get("data", [])
+
+
+        except Exception as e:
+            # Tratamento de segurança final para qualquer erro inesperado
+            print(f"❌ Erro fatal inesperado no rotator.py para {origem}->{destino}: {e}")
+            return None
 
     def buscar_voo_exato(self, origem, destino, data, data_volta=None):
         params = {

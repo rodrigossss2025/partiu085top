@@ -40,9 +40,9 @@ if not os.getenv('TELEGRAM_TOKEN'):
 # ------------------------------------------------------
 try:
     from backend.core_milhas.orquestrador_voos import executar_fluxo_voos
-    from backend.agendador_front.notificacoes import enviar_mensagem_telegram
+    from backend.agendador_front.notificacoes import enviar_mensagem_telegram, enviar_oferta_telegram
     from backend.core_amadeus.rotator import AmadeusRotator
-    import backend.config_agendador as config_agendador
+    #import backend.config_agendador as config_agendador
     from backend.agendador_front import scheduler
     from backend.agendador_front.scheduler import executar_agora
     from backend.core_milhas.processador_texto import processar_texto_promocional
@@ -53,7 +53,8 @@ except ImportError as e:
 # ------------------------------------------------------
 # 3. SETUP FLASK E DIRETÓRIOS
 # ------------------------------------------------------
-DATA_DIR = "/data"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, "data")
 
 
 RESULTADOS_CSV = os.path.join(DATA_DIR, "resultados_v2.csv")
@@ -69,7 +70,7 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 def start_scheduler():
     try:
         log_info("⚙️ Iniciando agendador...")
-        config_agendador.iniciar_agendador()
+        scheduler.iniciar_agendador()
         log_info("✅ Agendador ativo.")
     except Exception as e:
         log_info(f"🚨 Erro agendador: {e}")
@@ -218,10 +219,6 @@ def api_executar():
                 data_volta=data_volta,
             )
             log_info("✅ Busca finalizada no CSV v2!")
-            try:
-                enviar_mensagem_telegram("✅ Varredura manual concluída!")
-            except Exception:
-                pass
 
         except Exception as exc:
             log_info(f"🚨 Erro fatal: {exc}")
@@ -314,6 +311,16 @@ def api_test_telegram():
         return jsonify({"success": False}), 500
 
 
+@app.route("/api/telegram/oferta", methods=["POST"])
+def api_enviar_oferta_telegram():
+    try:
+        oferta = request.json
+        enviar_oferta_telegram(oferta)
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route("/api/test_amadeus", methods=["POST"])
 def api_test_amadeus():
     try:
@@ -333,6 +340,7 @@ def api_processar():
 def api_agendador_agora():
     resultado = executar_agora()
     return jsonify(resultado)
+
 
 
 if __name__ == "__main__":

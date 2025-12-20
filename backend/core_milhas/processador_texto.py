@@ -13,7 +13,7 @@ from datetime import datetime
 
 # --- Imports do projeto ---
 from backend.core_amadeus.rotator import amadeus_client
-from backend.core_milhas.orquestrador_voos import gerar_link_google_flights, salvar_oferta_csv
+
 
 # ============================================
 # 🌎 MAPA IATA

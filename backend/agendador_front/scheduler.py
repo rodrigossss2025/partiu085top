@@ -2,6 +2,8 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from backend.core_milhas.orquestrador_voos import executar_fluxo_voos
 import atexit
 from datetime import datetime, timedelta
+from apscheduler.triggers.cron import CronTrigger
+
 
 # --- Imports para o novo Robô Sniper ---
 import csv
@@ -118,13 +120,21 @@ def iniciar_agendador():
 
     _scheduler = BackgroundScheduler()
 
-    # JOB 1 (Mão-de-vaca): Roda a cada 6 horas
+    # JOB 1 (Mão-de-vaca): horários fixos
     _scheduler.add_job(
         func=job_robo_automatico,
-        trigger="interval",
-        hours=6,
-        id="job_busca_auto",
-        next_run_time=datetime.now()  # Roda agora na primeira vez
+        trigger=CronTrigger(hour=5, minute=30),
+        id="job_busca_auto_manha",
+        max_instances=1,
+        coalesce=True
+    )
+
+    _scheduler.add_job(
+        func=job_robo_automatico,
+        trigger=CronTrigger(hour=17, minute=30),
+        id="job_busca_auto_tarde",
+        max_instances=1,
+        coalesce=True
     )
 
     # JOB 2 (Sniper): Roda a cada 6 horas (com delay de 5 min)
@@ -133,7 +143,9 @@ def iniciar_agendador():
         trigger="interval",
         hours=6,
         id="job_busca_sniper",
-        next_run_time=datetime.now() + timedelta(minutes=5)  # Roda 5 min depois
+        next_run_time=datetime.now() + timedelta(minutes=5),  # Roda 5 min depois
+        max_instances=1,
+        coalesce=True
     )
 
     _scheduler.start()
@@ -186,6 +198,6 @@ def status_agendador():
         "proxima_execucao": proxima_auto,  # A sua página usa esta chave
         "proxima_execucao_auto": proxima_auto,  # Nova chave
         "proxima_execucao_sniper": proxima_sniper,  # Nova chave
-        "intervalo": "6 horas",
-        "horarios": ["00:00", "06:00", "12:00", "18:00"]  # Mock para a sua UI
+        "intervalo": "12 horas",
+        "horarios": ["05:30", "17:30"]  # Mock para a sua UI
     }

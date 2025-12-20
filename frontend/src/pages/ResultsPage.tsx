@@ -1,5 +1,3 @@
-// frontend/src/pages/ResultsPage.tsx
-
 import React, { useEffect, useMemo, useState } from "react";
 import {
   TicketIcon,
@@ -15,10 +13,17 @@ interface OfertasAgrupadas {
   ontem: Oferta[];
 }
 
-// Converte "2025-11-22 01:33:45" ou ISO -> Date
-function parseTimestamp(ts: string) {
-  if (!ts) return new Date(0);
-  return new Date(ts.replace(" ", "T"));
+/* =================== HELPERS =================== */
+
+function parseTimestamp(ts?: string) {
+  if (!ts) return new Date();
+  let d = new Date(ts);
+  if (!isNaN(d.getTime())) return d;
+
+  d = new Date(ts.replace(" ", "T"));
+  if (!isNaN(d.getTime())) return d;
+
+  return new Date();
 }
 
 function normalizePreco(p: any) {
@@ -26,6 +31,8 @@ function normalizePreco(p: any) {
   if (typeof p === "number") return p;
   return Number(String(p).replace(",", ".").replace("R$", "").trim());
 }
+
+/* =================== PROCESSADOR =================== */
 
 function processarResultados(
   listaBruta: Oferta[],
@@ -35,58 +42,74 @@ function processarResultados(
   const ontem = new Date();
   ontem.setDate(ontem.getDate() - 1);
 
-  const isSameDay = (d1: Date, d2: Date) =>
-    d1.getDate() === d2.getDate() &&
-    d1.getMonth() === d2.getMonth() &&
-    d1.getFullYear() === d2.getFullYear();
+  const isSameDay = (a: Date, b: Date) =>
+    a.getDate() === b.getDate() &&
+    a.getMonth() === b.getMonth() &&
+    a.getFullYear() === b.getFullYear();
 
   const ofertasHoje: Oferta[] = [];
   const ofertasOntem: Oferta[] = [];
 
   const termoFiltro = filtro.trim().toUpperCase();
+
   const listaFiltrada = termoFiltro
     ? listaBruta.filter((o: any) =>
-        String(o.destino || "").toUpperCase().includes(termoFiltro)
+        String(
+          o.destino || o.destination || o.destino_iata || ""
+        )
+          .toUpperCase()
+          .includes(termoFiltro)
       )
     : listaBruta;
 
   listaFiltrada.forEach((oferta: any) => {
     const precoNum = normalizePreco(oferta.preco);
+    const baselineNum = Number(oferta.baseline) || 0;
 
-    // Filtro baseline só para AUTO
+    // AUTO: não exibe acima do baseline
     if (
       oferta.modo === "AUTO" &&
-      oferta.baseline &&
-      Number(oferta.baseline) > 0 &&
-      precoNum > Number(oferta.baseline)
+      baselineNum > 0 &&
+      precoNum > baselineNum
     ) {
       return;
     }
 
-    const dataEncontrada = parseTimestamp(String(oferta.timestamp || ""));
+    const dataEncontrada = parseTimestamp(
+      oferta.timestamp || oferta.data_hora || oferta.created_at
+    );
 
     const diffHours =
       (Date.now() - dataEncontrada.getTime()) / (1000 * 60 * 60);
     if (diffHours > 48) return;
 
+    const percentual =
+      oferta.modo === "AUTO" && baselineNum > 0
+        ? precoNum / baselineNum
+        : null;
+
     const ofertaProcessada: Oferta = {
       ...oferta,
       preco: precoNum,
+      percentual_baseline: percentual,
     };
 
     if (isSameDay(dataEncontrada, hoje)) {
       ofertasHoje.push(ofertaProcessada);
     } else if (isSameDay(dataEncontrada, ontem)) {
       ofertasOntem.push(ofertaProcessada);
+    } else {
+      ofertasHoje.push(ofertaProcessada);
     }
   });
 
-  ofertasHoje.sort((a, b) => (Number(a.preco) || 0) - (Number(b.preco) || 0));
-  ofertasOntem.sort((a, b) => (Number(a.preco) || 0) - (Number(b.preco) || 0));
-
+  ofertasHoje.sort((a, b) => a.preco - b.preco);
+  ofertasOntem.sort((a, b) => a.preco - b.preco);
 
   return { hoje: ofertasHoje, ontem: ofertasOntem };
 }
+
+/* =================== PAGE =================== */
 
 export function ResultsPage() {
   const [allOfertas, setAllOfertas] = useState<Oferta[]>([]);
@@ -98,22 +121,19 @@ export function ResultsPage() {
       setLoading(true);
       try {
         const data = await getResultados();
-
-        // 🔥 SUPORTE A TODOS OS FORMATOS:
+        console.log("📦 RESULTADOS RAW:", data);
         const lista =
           data?.results ||
           data?.resultados ||
           data?.ofertas ||
           data?.lista ||
+          data?.data ||
           [];
 
-        if (Array.isArray(lista)) {
-          setAllOfertas(lista);
-        } else {
-          console.warn("Formato inesperado:", data);
-        }
-      } catch (error) {
-        console.error("Erro ao ler resultados", error);
+        if (Array.isArray(lista)) setAllOfertas(lista);
+        console.log("📊 LISTA FINAL:", lista);
+      } catch (e) {
+        console.error("Erro ao ler resultados", e);
       } finally {
         setLoading(false);
       }
@@ -126,90 +146,158 @@ export function ResultsPage() {
     [allOfertas, filter]
   );
 
-  const totalAtivo = grupos.hoje.length + grupos.ontem.length;
+   const rarasHoje = grupos.hoje.filter(
+     (o) =>
+       o.modo === "AUTO" &&
+       o.percentual_baseline !== null &&
+       o.percentual_baseline <= 0.6
+   );
+
+
+  const excelentesHoje = grupos.hoje.filter(
+    (o) =>
+      o.modo === "AUTO" &&
+      o.percentual_baseline !== null &&
+      o.percentual_baseline > 0.6 &&
+      o.percentual_baseline <= 0.8
+  );
+
+  const boasHoje = grupos.hoje.filter(
+    (o) =>
+      o.modo === "AUTO" &&
+      o.percentual_baseline !== null &&
+      o.percentual_baseline > 0.8 &&
+      o.percentual_baseline <= 1
+  );
+
+  const manuaisHoje = grupos.hoje.filter((o) => o.modo !== "AUTO");
+
+
+  const excelentesOntem = grupos.ontem.filter(
+    (o) =>
+      o.modo === "AUTO" &&
+      o.percentual_baseline !== null &&
+      o.percentual_baseline <= 0.8
+  );
+
+  const boasOntem = grupos.ontem.filter(
+    (o) =>
+      o.modo === "AUTO" &&
+      o.percentual_baseline !== null &&
+      o.percentual_baseline > 0.8 &&
+      o.percentual_baseline <= 1
+  );
+
+  const totalAtivo =
+    rarasHoje.length +
+    excelentesHoje.length +
+    boasHoje.length +
+    manuaisHoje.length +
+    excelentesOntem.length +
+    boasOntem.length;
 
   return (
-    <div className="space-y-8 animate-fade-in p-6">
+    <div className="space-y-10 p-6">
       {/* CABEÇALHO */}
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center space-x-3 mb-2">
             <TicketIcon className="h-8 w-8 text-orange-500" />
             <h1 className="text-3xl font-bold text-white">Oportunidades</h1>
           </div>
           <p className="text-gray-400 ml-11">
-            Mostrando apenas ofertas válidas das últimas 48 horas.
+            Ofertas válidas das últimas 48 horas.
           </p>
         </div>
         <div className="bg-slate-800 px-4 py-2 rounded-lg border border-slate-700 text-gray-300 text-sm">
-          Total Ativo: <span className="text-white font-bold">{totalAtivo}</span>
+          Total Ativo:{" "}
+          <span className="text-white font-bold">{totalAtivo}</span>
         </div>
       </div>
 
       {/* FILTRO */}
-      <div className="mb-4">
-        <div className="relative">
-          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <MagnifyingGlassIcon className="h-5 w-5 text-gray-500" />
-          </div>
-          <input
-            type="text"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            placeholder="Filtrar por Destino (ex: MIA, LIS, DXB...)"
-            className="w-full bg-slate-800/50 backdrop-blur-md border border-slate-700 rounded-xl pl-12 pr-4 py-3 text-white placeholder-gray-500 focus:ring-2 focus:ring-orange-500 outline-none transition-all"
-          />
-        </div>
+      <div className="relative">
+        <MagnifyingGlassIcon className="h-5 w-5 text-gray-500 absolute left-4 top-1/2 -translate-y-1/2" />
+        <input
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="Filtrar por destino (MIA, LIS, DXB...)"
+          className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-12 pr-4 py-3 text-white"
+        />
       </div>
 
       {/* RESULTADOS */}
       {loading ? (
-        <div className="text-center py-20 text-gray-500 animate-pulse">
-          Carregando e filtrando ofertas...
-        </div>
+        <div className="text-center py-20 text-gray-500">Carregando…</div>
       ) : totalAtivo === 0 ? (
-        <div className="text-center py-20 bg-slate-800/50 rounded-2xl border border-slate-700 border-dashed">
+        <div className="text-center py-20 bg-slate-800 rounded-2xl border border-slate-700">
           <TrashIcon className="h-12 w-12 text-slate-600 mx-auto mb-4" />
           <p className="text-gray-400">Nenhuma oferta encontrada.</p>
-          <p className="text-sm text-gray-600">
-            {filter ? "Tente limpar o filtro ou" : "Use o Radar para buscar."}
-          </p>
         </div>
       ) : (
-        <div className="space-y-12">
-          {grupos.hoje.length > 0 && (
-            <section>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                <h2 className="text-xl font-bold text-white">
-                  Fresquinhas do Dia (Hoje)
+        <>
+          {rarasHoje.length > 0 && (
+              <section>
+                <h2 className="text-xl font-bold text-red-400 mb-4">
+                  🚨 OFERTAS RARAS (≤ 60% do preço normal)
                 </h2>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {grupos.hoje.map((voo, i) => (
-                  <FlightCard key={`hj-${i}`} voo={voo} />
-                ))}
-              </div>
-            </section>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+                  {rarasHoje.map((voo, i) => (
+                    <FlightCard key={`rara-${i}`} voo={voo} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+
+          {excelentesHoje.length > 0 && (
+            <Section title="🔥 Imperdíveis (até 80%)">
+              {excelentesHoje}
+            </Section>
           )}
 
-          {grupos.ontem.length > 0 && (
-            <section className="opacity-80 hover:opacity-100 transition-opacity">
-              <div className="flex items-center gap-2 mb-4 border-t border-slate-700 pt-8">
-                <div className="h-2 w-2 rounded-full bg-orange-500" />
-                <h2 className="text-xl font-bold text-gray-300">
-                  Última Chamada (Ontem)
-                </h2>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {grupos.ontem.map((voo, i) => (
-                  <FlightCard key={`ont-${i}`} voo={voo} />
-                ))}
-              </div>
-            </section>
+          {boasHoje.length > 0 && (
+            <Section title="💡 Boas oportunidades">
+              {boasHoje}
+            </Section>
           )}
-        </div>
+
+          {manuaisHoje.length > 0 && (
+            <Section title="👤 Buscas Manuais">
+              {manuaisHoje}
+            </Section>
+          )}
+
+          {(excelentesOntem.length > 0 || boasOntem.length > 0) && (
+            <Section title="⏳ Ontem" faded>
+              {[...excelentesOntem, ...boasOntem]}
+            </Section>
+          )}
+        </>
       )}
     </div>
+  );
+}
+
+/* =================== SECTION =================== */
+
+function Section({
+  title,
+  children,
+  faded,
+}: {
+  title: string;
+  children: Oferta[];
+  faded?: boolean;
+}) {
+  return (
+    <section className={faded ? "opacity-80" : ""}>
+      <h2 className="text-xl font-bold text-white mb-4">{title}</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+        {children.map((voo, i) => (
+          <FlightCard key={i} voo={voo} />
+        ))}
+      </div>
+    </section>
   );
 }

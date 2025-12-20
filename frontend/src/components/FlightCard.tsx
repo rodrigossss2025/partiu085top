@@ -4,9 +4,11 @@ import {
   ClockIcon,
   ArrowTopRightOnSquareIcon,
   SparklesIcon,
-  CalendarDaysIcon
+  CalendarDaysIcon,
+  PaperAirplaneIcon
 } from '@heroicons/react/24/outline';
 import type { Oferta } from '../types';
+import { enviarOfertaTelegram } from '../services/backendService';
 
 // Funções de formatação
 const formatDataBr = (dateStr?: string) => {
@@ -33,6 +35,14 @@ const timeAgo = (timestampStr: string) => {
 export const FlightCard = ({ voo }: { voo: Oferta }) => {
   const dataIda = voo.data_ida || voo.data;
   const temVolta = voo.data_volta && voo.data_volta.length > 5;
+
+  const handleEnviarTelegram = async () => {
+    try {
+      await enviarOfertaTelegram(voo);
+    } catch (e) {
+      console.error("Erro ao enviar oferta para Telegram", e);
+    }
+  };
 
   return (
     <div className="group bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl p-5 hover:border-orange-500/50 hover:shadow-orange-900/20 transition-all duration-300 relative overflow-hidden flex flex-col justify-between h-full">
@@ -92,61 +102,81 @@ export const FlightCard = ({ voo }: { voo: Oferta }) => {
         </div>
       </div>
 
-      {/* PREÇO + BOTÃO */}
-      <div className="flex items-end justify-between border-t border-slate-700 pt-4">
-        <div>
-          <p className="text-xs text-gray-500 mb-1">
-            {voo.modo === 'MILHAS (R$)'
-              ? 'Preço em Milhas'
-              : temVolta
-              ? 'Total (Ida + Volta)'
-              : 'Preço por pessoa'}
-          </p>
+      {/* PREÇO + AÇÕES */}
+      <div className="border-t border-slate-700 pt-4 space-y-3">
 
-          <div className={`flex items-center text-2xl font-bold ${
-            voo.modo === 'MILHAS (R$)'
-              ? 'text-purple-400'
-              : 'text-green-400'
-          }`}>
-            <span className="text-sm mr-1">
-              {voo.modo === 'MILHAS (R$)' ? '' : voo.moeda}
-            </span>
+        {/* PREÇO */}
+        <div className="flex items-end justify-between">
+          <div>
+            <p className="text-xs text-gray-500 mb-1">
+              {voo.modo === 'MILHAS (R$)'
+                ? 'Preço em Milhas'
+                : temVolta
+                ? 'Total (Ida + Volta)'
+                : 'Preço por pessoa'}
+            </p>
 
-            {/* 💰 PREÇO FINAL DO BACKEND */}
-            {Number(
-              voo.modo === "MILHAS (R$)"
-                ? voo.baseline
-                : voo.preco   // <- SEMPRE vem o preço final (ida ou ida+volta)
-            ).toLocaleString("pt-BR", {
-              minimumFractionDigits: voo.modo === "MILHAS (R$)" ? 0 : 2
-            })}
+            <div className={`flex items-center text-2xl font-bold ${
+              voo.modo === 'MILHAS (R$)'
+                ? 'text-purple-400'
+                : 'text-green-400'
+            }`}>
+              <span className="text-sm mr-1">
+                {voo.modo === 'MILHAS (R$)' ? '' : voo.moeda}
+              </span>
+
+              {Number(
+                voo.modo === "MILHAS (R$)"
+                  ? voo.baseline
+                  : voo.preco
+              ).toLocaleString("pt-BR", {
+                minimumFractionDigits: voo.modo === "MILHAS (R$)" ? 0 : 2
+              })}
+
+              {voo.modo === 'MILHAS (R$)' && (
+                <span className="text-lg ml-2">milhas</span>
+              )}
+            </div>
 
             {voo.modo === 'MILHAS (R$)' && (
-              <span className="text-lg ml-2">milhas</span>
+              <span className="text-xs text-green-400">
+                Preço (R$):{' '}
+                {Number(voo.preco).toLocaleString('pt-BR', {
+                  style: 'currency',
+                  currency: 'BRL',
+                })}
+              </span>
             )}
           </div>
 
-          {/* Preço em R$ quando for milhas */}
-          {voo.modo === 'MILHAS (R$)' && (
-            <span className="text-xs text-green-400">
-              Preço (R$):{' '}
-              {Number(voo.preco).toLocaleString('pt-BR', {
-                style: 'currency',
-                currency: 'BRL',
-              })}
-            </span>
-          )}
+          <a
+            href={voo.link}
+            target="_blank"
+            rel="noreferrer"
+            className="bg-white text-slate-900 hover:bg-orange-500 hover:text-white px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-colors shadow-lg active:scale-95"
+          >
+            Ver
+            <ArrowTopRightOnSquareIcon className="h-4 w-4" />
+          </a>
         </div>
 
-        <a
-          href={voo.link}
-          target="_blank"
-          rel="noreferrer"
-          className="bg-white text-slate-900 hover:bg-orange-500 hover:text-white px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-colors shadow-lg active:scale-95"
+        {/* BOTÃO TELEGRAM */}
+        <button
+          onClick={() =>
+            enviarOfertaTelegram({
+              origem: voo.origem,
+              destino: voo.destino,
+              data_ida: voo.data_ida,
+              data_volta: voo.data_volta,
+              preco: voo.preco,
+              link: voo.link,
+            })
+          }
+          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-semibold transition active:scale-95"
         >
-          Ver
-          <ArrowTopRightOnSquareIcon className="h-4 w-4" />
-        </a>
+          ✈️ Enviar para Telegram
+        </button>
+
       </div>
 
       {/* EFEITO SPARKLES */}

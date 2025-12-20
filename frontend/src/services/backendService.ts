@@ -130,3 +130,14 @@ export async function executarAgendadorAgora() {
   return res.json();
 }
 
+// =================== TELEGRAM ===================
+
+export async function enviarOfertaTelegram(oferta: any) {
+  return await request("/telegram/oferta", {
+    method: "POST",
+    body: JSON.stringify(oferta),
+  });
+}
+
+
+
