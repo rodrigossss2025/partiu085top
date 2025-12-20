@@ -1,3 +1,5 @@
+import { RadarPage } from "./pages/RadarPage";
+
 export default function App() {
-  return <div>Build test</div>;
+  return <RadarPage />;
 }
