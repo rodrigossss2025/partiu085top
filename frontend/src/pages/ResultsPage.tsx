@@ -6,7 +6,14 @@ import {
 } from "@heroicons/react/24/outline";
 import { getResultados } from "../services/backendService";
 import { FlightCard } from "../components/FlightCard";
-import type { Oferta } from "../types";
+import type { Oferta as OfertaOriginal } from "../types";
+
+/* =================== TIPAGEM LOCAL =================== */
+
+interface Oferta extends OfertaOriginal {
+  preco: number;
+  percentual_baseline: number | null;
+}
 
 interface OfertasAgrupadas {
   hoje: Oferta[];
@@ -15,8 +22,9 @@ interface OfertasAgrupadas {
 
 /* =================== HELPERS =================== */
 
-function parseTimestamp(ts?: string) {
+function parseTimestamp(ts?: string): Date {
   if (!ts) return new Date();
+
   let d = new Date(ts);
   if (!isNaN(d.getTime())) return d;
 
@@ -26,16 +34,25 @@ function parseTimestamp(ts?: string) {
   return new Date();
 }
 
-function normalizePreco(p: any) {
-  if (p === null || p === undefined) return 0;
-  if (typeof p === "number") return p;
-  return Number(String(p).replace(",", ".").replace("R$", "").trim());
+function normalizePreco(valor: any): number {
+  if (valor === null || valor === undefined) return 0;
+  if (typeof valor === "number") return valor;
+
+  const n = Number(
+    String(valor)
+      .replace("R$", "")
+      .replace(/\./g, "")
+      .replace(",", ".")
+      .trim()
+  );
+
+  return isNaN(n) ? 0 : n;
 }
 
 /* =================== PROCESSADOR =================== */
 
 function processarResultados(
-  listaBruta: Oferta[],
+  listaBruta: OfertaOriginal[],
   filtro: string
 ): OfertasAgrupadas {
   const hoje = new Date();
@@ -47,26 +64,23 @@ function processarResultados(
     a.getMonth() === b.getMonth() &&
     a.getFullYear() === b.getFullYear();
 
-  const ofertasHoje: Oferta[] = [];
-  const ofertasOntem: Oferta[] = [];
-
   const termoFiltro = filtro.trim().toUpperCase();
 
   const listaFiltrada = termoFiltro
     ? listaBruta.filter((o: any) =>
-        String(
-          o.destino || o.destination || o.destino_iata || ""
-        )
+        String(o.destino || o.destination || o.destino_iata || "")
           .toUpperCase()
           .includes(termoFiltro)
       )
     : listaBruta;
 
+  const ofertasHoje: Oferta[] = [];
+  const ofertasOntem: Oferta[] = [];
+
   listaFiltrada.forEach((oferta: any) => {
     const precoNum = normalizePreco(oferta.preco);
     const baselineNum = Number(oferta.baseline) || 0;
 
-    // AUTO: não exibe acima do baseline
     if (
       oferta.modo === "AUTO" &&
       baselineNum > 0 &&
@@ -112,7 +126,7 @@ function processarResultados(
 /* =================== PAGE =================== */
 
 export function ResultsPage() {
-  const [allOfertas, setAllOfertas] = useState<Oferta[]>([]);
+  const [allOfertas, setAllOfertas] = useState<OfertaOriginal[]>([]);
   const [filter, setFilter] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -121,7 +135,6 @@ export function ResultsPage() {
       setLoading(true);
       try {
         const data = await getResultados();
-        console.log("📦 RESULTADOS RAW:", data);
         const lista =
           data?.results ||
           data?.resultados ||
@@ -131,7 +144,6 @@ export function ResultsPage() {
           [];
 
         if (Array.isArray(lista)) setAllOfertas(lista);
-        console.log("📊 LISTA FINAL:", lista);
       } catch (e) {
         console.error("Erro ao ler resultados", e);
       } finally {
@@ -146,13 +158,12 @@ export function ResultsPage() {
     [allOfertas, filter]
   );
 
-   const rarasHoje = grupos.hoje.filter(
-     (o) =>
-       o.modo === "AUTO" &&
-       o.percentual_baseline !== null &&
-       o.percentual_baseline <= 0.6
-   );
-
+  const rarasHoje = grupos.hoje.filter(
+    (o) =>
+      o.modo === "AUTO" &&
+      o.percentual_baseline !== null &&
+      o.percentual_baseline <= 0.6
+  );
 
   const excelentesHoje = grupos.hoje.filter(
     (o) =>
@@ -171,7 +182,6 @@ export function ResultsPage() {
   );
 
   const manuaisHoje = grupos.hoje.filter((o) => o.modo !== "AUTO");
-
 
   const excelentesOntem = grupos.ontem.filter(
     (o) =>
@@ -237,18 +247,10 @@ export function ResultsPage() {
       ) : (
         <>
           {rarasHoje.length > 0 && (
-              <section>
-                <h2 className="text-xl font-bold text-red-400 mb-4">
-                  🚨 OFERTAS RARAS (≤ 60% do preço normal)
-                </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-                  {rarasHoje.map((voo, i) => (
-                    <FlightCard key={`rara-${i}`} voo={voo} />
-                  ))}
-                </div>
-              </section>
-            )}
-
+            <Section title="🚨 OFERTAS RARAS (≤ 60%)">
+              {rarasHoje}
+            </Section>
+          )}
 
           {excelentesHoje.length > 0 && (
             <Section title="🔥 Imperdíveis (até 80%)">
