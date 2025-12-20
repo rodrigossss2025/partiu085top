@@ -1,7 +1,6 @@
 import { Routes, Route, HashRouter } from 'react-router-dom';
 // ⚠️ CORREÇÃO: Adicionando explicitamente o sufixo .tsx em todas as importações para resolver o erro de compilação
 import { RadarPage } from './pages/RadarPage.tsx';
-import { ResultsPage } from './pages/ResultsPage.jsx';
 import { SettingsPage } from './pages/SettingsPage.tsx';
 import { BottomNavBar } from './components/BottomNavBar.tsx';
 import { MillasLabPage } from './pages/MillasLabPage.tsx';
@@ -18,7 +17,6 @@ function App() {
         <main className="pb-24 max-w-7xl mx-auto">
           <Routes>
             <Route path="/" element={<RadarPage />} />
-            <Route path="/resultados" element={<ResultsPage />} />
             <Route path="/config" element={<SettingsPage />} />
             <Route path="/lab" element={<MillasLabPage />} />
             <Route path="/alertas" element={<AlertasPage />} />
