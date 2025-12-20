@@ -7,11 +7,11 @@ import {
 } from "../services/backendService";
 import { GlassCard } from "@/components/GlassCard";
 
-export const SettingsPage: React.FC = () => {
-  const [status, setStatus] = useState<any>(null);
+export function SettingsPage() {
+  const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(false);
   const [executandoAgora, setExecutandoAgora] = useState(false);
-  const [resultadoAgora, setResultadoAgora] = useState<any>(null);
+  const [resultadoAgora, setResultadoAgora] = useState(null);
 
   async function fetchStatus() {
     try {
@@ -24,16 +24,22 @@ export const SettingsPage: React.FC = () => {
 
   async function handleIniciar() {
     setLoading(true);
-    await iniciarAgendador();
-    await fetchStatus();
-    setLoading(false);
+    try {
+      await iniciarAgendador();
+      await fetchStatus();
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handlePausar() {
     setLoading(true);
-    await pausarAgendador();
-    await fetchStatus();
-    setLoading(false);
+    try {
+      await pausarAgendador();
+      await fetchStatus();
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleRodarAgora() {
@@ -45,9 +51,9 @@ export const SettingsPage: React.FC = () => {
       setResultadoAgora(data);
     } catch (err) {
       console.error("Erro ao executar agora:", err);
+    } finally {
+      setExecutandoAgora(false);
     }
-
-    setExecutandoAgora(false);
   }
 
   useEffect(() => {
@@ -68,7 +74,7 @@ export const SettingsPage: React.FC = () => {
 
         <p className="text-sm text-gray-300 mb-2">{textoStatus}</p>
 
-        <div className="flex gap-3 mt-3">
+        <div className="flex gap-3 mt-3 flex-wrap">
           <button
             onClick={handleIniciar}
             disabled={loading}
@@ -105,4 +111,4 @@ export const SettingsPage: React.FC = () => {
       </GlassCard>
     </div>
   );
-};
+}
