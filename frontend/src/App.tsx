@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { RadarPage } from "./pages/RadarPage";
-import { MillasLabPage } from "./pages/MillasLabPage";
+import { SettingsPage } from "./pages/SettingsPage";
 
 
 export default function App() {
@@ -8,7 +8,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<RadarPage />} />
-        <Route path="/lab-milhas" element={<MillasLabPage />} />
+        <Route path="/Settings-Page" element={<SettingsPage />} />
       </Routes>
     </BrowserRouter>
   );
