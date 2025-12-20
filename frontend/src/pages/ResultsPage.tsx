@@ -7,25 +7,9 @@ import {
 import { getResultados } from "../services/backendService";
 import { FlightCard } from "../components/FlightCard";
 
-/* =================== TIPAGEM LOCAL (ISOLADA) =================== */
-
-interface Oferta {
-  origem?: string;
-  destino?: string;
-  destino_iata?: string;
-  destination?: string;
-  modo?: string;
-  baseline?: number | string;
-  preco: number;
-  percentual_baseline: number | null;
-  timestamp?: string;
-  data_hora?: string;
-  created_at?: string;
-}
-
 /* =================== HELPERS =================== */
 
-function parseTimestamp(ts?: string): Date {
+function parseTimestamp(ts?: string) {
   if (!ts) return new Date();
 
   let d = new Date(ts);
@@ -54,10 +38,7 @@ function normalizePreco(valor: any): number {
 
 /* =================== PROCESSADOR =================== */
 
-function processarResultados(
-  listaBruta: any[],
-  filtro: string
-): { hoje: Oferta[]; ontem: Oferta[] } {
+function processarResultados(listaBruta: any[], filtro: string) {
   const hoje = new Date();
   const ontem = new Date();
   ontem.setDate(ontem.getDate() - 1);
@@ -70,21 +51,20 @@ function processarResultados(
   const termoFiltro = filtro.trim().toUpperCase();
 
   const listaFiltrada = termoFiltro
-    ? listaBruta.filter((o: any) =>
+    ? listaBruta.filter((o) =>
         String(o.destino || o.destination || o.destino_iata || "")
           .toUpperCase()
           .includes(termoFiltro)
       )
     : listaBruta;
 
-  const ofertasHoje: Oferta[] = [];
-  const ofertasOntem: Oferta[] = [];
+  const hojeArr: any[] = [];
+  const ontemArr: any[] = [];
 
-  listaFiltrada.forEach((oferta: any) => {
+  listaFiltrada.forEach((oferta) => {
     const precoNum = normalizePreco(oferta.preco);
     const baselineNum = Number(oferta.baseline) || 0;
 
-    // AUTO: não exibe acima do baseline
     if (
       oferta.modo === "AUTO" &&
       baselineNum > 0 &&
@@ -106,25 +86,25 @@ function processarResultados(
         ? precoNum / baselineNum
         : null;
 
-    const ofertaProcessada: Oferta = {
+    const obj = {
       ...oferta,
       preco: precoNum,
       percentual_baseline: percentual,
     };
 
     if (isSameDay(dataEncontrada, hoje)) {
-      ofertasHoje.push(ofertaProcessada);
+      hojeArr.push(obj);
     } else if (isSameDay(dataEncontrada, ontem)) {
-      ofertasOntem.push(ofertaProcessada);
+      ontemArr.push(obj);
     } else {
-      ofertasHoje.push(ofertaProcessada);
+      hojeArr.push(obj);
     }
   });
 
-  ofertasHoje.sort((a, b) => Number(a.preco) - Number(b.preco));
-  ofertasOntem.sort((a, b) => Number(a.preco) - Number(b.preco));
+  hojeArr.sort((a: any, b: any) => Number(a.preco) - Number(b.preco));
+  ontemArr.sort((a: any, b: any) => Number(a.preco) - Number(b.preco));
 
-  return { hoje: ofertasHoje, ontem: ofertasOntem };
+  return { hoje: hojeArr, ontem: ontemArr };
 }
 
 /* =================== PAGE =================== */
@@ -163,14 +143,14 @@ export function ResultsPage() {
   );
 
   const rarasHoje = grupos.hoje.filter(
-    (o) =>
+    (o: any) =>
       o.modo === "AUTO" &&
       o.percentual_baseline !== null &&
       o.percentual_baseline <= 0.6
   );
 
   const excelentesHoje = grupos.hoje.filter(
-    (o) =>
+    (o: any) =>
       o.modo === "AUTO" &&
       o.percentual_baseline !== null &&
       o.percentual_baseline > 0.6 &&
@@ -178,24 +158,24 @@ export function ResultsPage() {
   );
 
   const boasHoje = grupos.hoje.filter(
-    (o) =>
+    (o: any) =>
       o.modo === "AUTO" &&
       o.percentual_baseline !== null &&
       o.percentual_baseline > 0.8 &&
       o.percentual_baseline <= 1
   );
 
-  const manuaisHoje = grupos.hoje.filter((o) => o.modo !== "AUTO");
+  const manuaisHoje = grupos.hoje.filter((o: any) => o.modo !== "AUTO");
 
   const excelentesOntem = grupos.ontem.filter(
-    (o) =>
+    (o: any) =>
       o.modo === "AUTO" &&
       o.percentual_baseline !== null &&
       o.percentual_baseline <= 0.8
   );
 
   const boasOntem = grupos.ontem.filter(
-    (o) =>
+    (o: any) =>
       o.modo === "AUTO" &&
       o.percentual_baseline !== null &&
       o.percentual_baseline > 0.8 &&
@@ -251,25 +231,21 @@ export function ResultsPage() {
       ) : (
         <>
           {rarasHoje.length > 0 && (
-            <Section title="🚨 OFERTAS RARAS (≤ 60%)" ofertas={rarasHoje} />
+            <Section title="🚨 OFERTAS RARAS (≤ 60%)" lista={rarasHoje} />
           )}
-
           {excelentesHoje.length > 0 && (
-            <Section title="🔥 Imperdíveis (até 80%)" ofertas={excelentesHoje} />
+            <Section title="🔥 Imperdíveis (até 80%)" lista={excelentesHoje} />
           )}
-
           {boasHoje.length > 0 && (
-            <Section title="💡 Boas oportunidades" ofertas={boasHoje} />
+            <Section title="💡 Boas oportunidades" lista={boasHoje} />
           )}
-
           {manuaisHoje.length > 0 && (
-            <Section title="👤 Buscas Manuais" ofertas={manuaisHoje} />
+            <Section title="👤 Buscas Manuais" lista={manuaisHoje} />
           )}
-
           {(excelentesOntem.length > 0 || boasOntem.length > 0) && (
             <Section
               title="⏳ Ontem"
-              ofertas={[...excelentesOntem, ...boasOntem]}
+              lista={[...excelentesOntem, ...boasOntem]}
               faded
             />
           )}
@@ -283,18 +259,18 @@ export function ResultsPage() {
 
 function Section({
   title,
-  ofertas,
+  lista,
   faded,
 }: {
   title: string;
-  ofertas: Oferta[];
+  lista: any[];
   faded?: boolean;
 }) {
   return (
     <section className={faded ? "opacity-80" : ""}>
       <h2 className="text-xl font-bold text-white mb-4">{title}</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-        {ofertas.map((voo, i) => (
+        {lista.map((voo, i) => (
           <FlightCard key={i} voo={voo} />
         ))}
       </div>
