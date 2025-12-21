@@ -4,7 +4,6 @@ import time
 from datetime import datetime, date, timedelta
 
 from backend.core_amadeus.rotator import amadeus_client as amadeus_client_rotator
-from backend.core_amadeus.rotator_antigo import amadeus_client as amadeus_client_antigo
 from backend.agendador_front.notificacoes import enviar_oferta_telegram
 
 
@@ -62,19 +61,14 @@ def _fluxo_manual_exato(destinos, data_ida, data_volta=None):
 
     for destino in destinos:
         try:
-            voos = amadeus_client_antigo.buscar_voo_exato(
+            voos = amadeus_client_rotator.buscar_voo_exato(
                 origem, destino, data_ida, data_volta
             )
             if not voos:
                 continue
 
             price = voos[0].get("price", {})
-            preco = float(
-                price.get("base")
-                or price.get("grandTotal")
-                or price.get("total")
-                or 0
-            )
+            preco = float(price.get("grandTotal", 0))
 
             oferta = {
                 "origem": origem,
