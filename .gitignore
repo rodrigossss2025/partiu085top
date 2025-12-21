@@ -1,6 +1,7 @@
-Diretórios de Python
-
-pycache/
+# =========================
+# PYTHON
+# =========================
+__pycache__/
 *.pyc
 *.pyo
 *.pyd
@@ -9,19 +10,41 @@ pycache/
 venv/
 env/
 
-# Ignorar arquivos de backup / grandes
+backend/core_milhas/data/
+
+
+# =========================
+# NODE / FRONTEND
+# =========================
+node_modules/
+dist/
+frontend/node_modules/
+frontend/dist/
+frontend/package-lock.json
+
+
+# =========================
+# DADOS (REGRA GERAL)
+# =========================
+data/*
+
+# liberar arquivos específicos
+!data/.gitkeep
+!data/coletas_filtrado_iata.csv
+!data/coletas_completo.csv
+
+# =========================
+# BACKUPS / LIXO
+# =========================
+backup*
+frontend/backup*
 *.zip
 *.rar
 
-#Arquivos de dados
-
-# Arquivos de dados
-# data/*
-# !data/coletas_filtrado_iata.csv
-
-
-Arquivos de ambiente - CRUCIAL para segurança!
-
+# =========================
+# VARIÁVEIS DE AMBIENTE
+# =========================
 .env
-/frontend/.env.local
-/frontend/.env.development
+.env.*
+frontend/.env.local
+frontend/.env.development

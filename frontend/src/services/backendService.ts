@@ -47,6 +47,20 @@ export async function postExecutarManual(
   });
 }
 
+// =================== AGENDADOR (FUNÇÕES QUE ESTAVAM FALTANDO) ===================
+
+export async function iniciarAgendador() {
+  return request("/agendador/iniciar", { method: "POST" });
+}
+
+export async function pausarAgendador() {
+  return request("/agendador/pausar", { method: "POST" });
+}
+
+export async function executarAgendadorAgora() {
+  return request("/agendador/executar", { method: "POST" });
+}
+
 // =================== RESULTADOS ===================
 
 export async function getResultados() {

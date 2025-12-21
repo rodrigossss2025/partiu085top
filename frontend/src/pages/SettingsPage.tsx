@@ -7,11 +7,13 @@ import {
 } from "../services/backendService";
 import { GlassCard } from "@/components/GlassCard";
 
+/* =================== PAGE =================== */
+
 export function SettingsPage() {
-  const [status, setStatus] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [executandoAgora, setExecutandoAgora] = useState(false);
-  const [resultadoAgora, setResultadoAgora] = useState(null);
+  const [status, setStatus] = useState<any>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [executandoAgora, setExecutandoAgora] = useState<boolean>(false);
+  const [resultadoAgora, setResultadoAgora] = useState<any>(null);
 
   async function fetchStatus() {
     try {
@@ -27,6 +29,8 @@ export function SettingsPage() {
     try {
       await iniciarAgendador();
       await fetchStatus();
+    } catch (err) {
+      console.error("Erro ao iniciar agendador:", err);
     } finally {
       setLoading(false);
     }
@@ -37,6 +41,8 @@ export function SettingsPage() {
     try {
       await pausarAgendador();
       await fetchStatus();
+    } catch (err) {
+      console.error("Erro ao pausar agendador:", err);
     } finally {
       setLoading(false);
     }
