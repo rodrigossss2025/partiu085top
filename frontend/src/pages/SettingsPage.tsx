@@ -10,6 +10,7 @@ import { GlassCard } from "@/components/GlassCard";
 /* =================== PAGE =================== */
 
 export function SettingsPage() {
+  // Tipando o estado para evitar problemas com 'any'
   const [status, setStatus] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [executandoAgora, setExecutandoAgora] = useState<boolean>(false);
@@ -24,7 +25,7 @@ export function SettingsPage() {
     }
   }
 
-  async function handleIniciar() {
+  const handleIniciar = async () => {
     setLoading(true);
     try {
       await iniciarAgendador();
@@ -34,9 +35,9 @@ export function SettingsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-  async function handlePausar() {
+  const handlePausar = async () => {
     setLoading(true);
     try {
       await pausarAgendador();
@@ -46,9 +47,9 @@ export function SettingsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-  async function handleRodarAgora() {
+  const handleRodarAgora = async () => {
     setExecutandoAgora(true);
     setResultadoAgora(null);
 
@@ -60,16 +61,17 @@ export function SettingsPage() {
     } finally {
       setExecutandoAgora(false);
     }
-  }
+  };
 
   useEffect(() => {
     fetchStatus();
   }, []);
 
+  // Lógica de texto simplificada
   const textoStatus =
     status?.status ||
     status?.message ||
-    "Carregando status do agendador...";
+    (loading ? "Atualizando..." : "Carregando status do agendador...");
 
   return (
     <div className="p-4 space-y-4">
@@ -84,7 +86,7 @@ export function SettingsPage() {
           <button
             onClick={handleIniciar}
             disabled={loading}
-            className="px-4 py-2 bg-green-500 hover:bg-green-600 rounded-md text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Iniciar
           </button>
@@ -92,7 +94,7 @@ export function SettingsPage() {
           <button
             onClick={handlePausar}
             disabled={loading}
-            className="px-4 py-2 bg-red-500 hover:bg-red-600 rounded-md text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-md text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Pausar
           </button>
@@ -100,16 +102,16 @@ export function SettingsPage() {
           <button
             onClick={handleRodarAgora}
             disabled={executandoAgora}
-            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-md text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {executandoAgora ? "Executando..." : "Rodar Agora"}
           </button>
         </div>
 
         {resultadoAgora && (
-          <div className="mt-4 p-3 bg-black/40 text-gray-200 rounded-lg text-sm">
-            <p className="font-bold mb-1">Resultado:</p>
-            <pre className="whitespace-pre-wrap">
+          <div className="mt-4 p-3 bg-black/40 text-gray-200 rounded-lg text-sm border border-white/10">
+            <p className="font-bold mb-1 text-blue-400">Resultado:</p>
+            <pre className="whitespace-pre-wrap overflow-x-auto">
               {JSON.stringify(resultadoAgora, null, 2)}
             </pre>
           </div>

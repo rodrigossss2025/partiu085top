@@ -47,7 +47,7 @@ export async function postExecutarManual(
   });
 }
 
-// =================== AGENDADOR (FUNÇÕES QUE ESTAVAM FALTANDO) ===================
+// =================== AGENDADOR ===================
 
 export async function iniciarAgendador() {
   return request("/agendador/iniciar", { method: "POST" });
@@ -59,6 +59,15 @@ export async function pausarAgendador() {
 
 export async function executarAgendadorAgora() {
   return request("/agendador/executar", { method: "POST" });
+}
+
+// =================== CONVERSOR / MILLAS LAB ===================
+
+export async function postProcessarTexto(texto: string, modo: "reais" | "reescrever") {
+  return request("/processar_texto", {
+    method: "POST",
+    body: JSON.stringify({ texto, modo }),
+  });
 }
 
 // =================== RESULTADOS ===================

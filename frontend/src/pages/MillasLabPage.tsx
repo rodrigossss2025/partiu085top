@@ -13,22 +13,18 @@ import type { Oferta } from "../types";
 
 /* =================== TIPOS =================== */
 
-// Resultado final usado na UI
 type Resultado =
   | { tipo: "voo"; conteudo: Oferta }
   | { tipo: "texto"; conteudo: string }
   | { tipo: "erro"; conteudo: string }
   | null;
 
-// Resposta esperada do backend (flexível, mas segura)
 interface RespostaBackend {
   sucesso?: boolean;
   tipo?: "voo" | "texto";
   conteudo?: any;
   message?: string;
 }
-
-/* =================== PAGE =================== */
 
 export function MillasLabPage() {
   const [textoInput, setTextoInput] = useState<string>("");
@@ -43,11 +39,12 @@ export function MillasLabPage() {
     setResultado(null);
 
     try {
+      // @ts-ignore - Caso postProcessarTexto não esteja tipado no backendService
       const resp: RespostaBackend = await postProcessarTexto(textoInput, modo);
 
       if (resp?.sucesso && resp.tipo && resp.conteudo) {
         setResultado({
-          tipo: resp.tipo,
+          tipo: resp.tipo as "voo" | "texto",
           conteudo: resp.conteudo,
         });
       } else {
@@ -77,7 +74,6 @@ export function MillasLabPage() {
 
   return (
     <div className="space-y-8 animate-fade-in p-6">
-      {/* CABEÇALHO */}
       <div className="flex items-center space-x-3 mb-2">
         <BeakerIcon className="h-8 w-8 text-orange-500" />
         <h1 className="text-3xl font-bold text-white">Conversor de Textos</h1>
@@ -86,12 +82,8 @@ export function MillasLabPage() {
         Cole textos de promoções do WhatsApp para analisar e reescrever.
       </p>
 
-      {/* INPUT */}
       <div className="bg-slate-800/50 backdrop-blur-md border border-slate-700 p-6 rounded-2xl shadow-2xl space-y-6">
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Cole o texto da promoção aqui:
-          </label>
           <textarea
             value={textoInput}
             onChange={(e) => setTextoInput(e.target.value)}
@@ -101,73 +93,41 @@ export function MillasLabPage() {
           />
         </div>
 
-        {/* BOTÕES */}
         <div className="flex flex-col md:flex-row gap-4">
           <button
             onClick={() => handleProcessar("reais")}
             disabled={loading}
-            className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold shadow-lg transition-all transform hover:scale-105 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white disabled:bg-gray-600"
+            className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold bg-gradient-to-r from-green-500 to-emerald-600 text-white disabled:opacity-50"
           >
-            {loading ? (
-              <ArrowPathIcon className="h-5 w-5 animate-spin" />
-            ) : (
-              <ArrowsRightLeftIcon className="h-5 w-5" />
-            )}
+            {loading ? <ArrowPathIcon className="h-5 w-5 animate-spin" /> : <ArrowsRightLeftIcon className="h-5 w-5" />}
             Converter p/ Reais (R$)
           </button>
 
           <button
             onClick={() => handleProcessar("reescrever")}
             disabled={loading}
-            className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold shadow-lg transition-all transform hover:scale-105 bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-400 hover:to-cyan-500 text-white disabled:bg-gray-600"
+            className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold bg-gradient-to-r from-blue-500 to-cyan-600 text-white disabled:opacity-50"
           >
-            {loading ? (
-              <ArrowPathIcon className="h-5 w-5 animate-spin" />
-            ) : (
-              <PencilSquareIcon className="h-5 w-5" />
-            )}
+            {loading ? <ArrowPathIcon className="h-5 w-5 animate-spin" /> : <PencilSquareIcon className="h-5 w-5" />}
             Alterar Texto Milhas
           </button>
         </div>
       </div>
 
-      {/* RESULTADO */}
       {resultado && !loading && (
         <div className="animate-fade-in">
-          <h2 className="text-xl font-bold text-white mb-4 border-t border-slate-700 pt-6">
-            Resultado:
-          </h2>
-
+          <h2 className="text-xl font-bold text-white mb-4 border-t border-slate-700 pt-6">Resultado:</h2>
           {resultado.tipo === "voo" && (
             <div className="max-w-md mx-auto">
-              <p className="text-sm text-center text-green-400 mb-2">
-                Encontrei o preço em dinheiro! (E já salvei nos Resultados)
-              </p>
               <FlightCard voo={resultado.conteudo} />
             </div>
           )}
-
           {resultado.tipo === "texto" && (
             <div className="relative bg-slate-800 p-4 rounded-xl border border-slate-700">
-              <button
-                onClick={handleCopy}
-                className="absolute top-2 right-2 p-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-gray-300"
-              >
-                {copied ? (
-                  <CheckIcon className="h-4 w-4 text-green-400" />
-                ) : (
-                  <ClipboardIcon className="h-4 w-4" />
-                )}
+              <button onClick={handleCopy} className="absolute top-2 right-2 p-2 bg-slate-700 rounded-lg">
+                {copied ? <CheckIcon className="h-4 w-4 text-green-400" /> : <ClipboardIcon className="h-4 w-4" />}
               </button>
-              <pre className="text-gray-200 whitespace-pre-wrap font-sans">
-                {resultado.conteudo}
-              </pre>
-            </div>
-          )}
-
-          {resultado.tipo === "erro" && (
-            <div className="text-center py-10 bg-red-900/20 rounded-xl border border-red-700">
-              <p className="text-red-400">Oops! {resultado.conteudo}</p>
+              <pre className="text-gray-200 whitespace-pre-wrap font-sans">{resultado.conteudo}</pre>
             </div>
           )}
         </div>
