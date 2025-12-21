@@ -4,22 +4,17 @@ import { RadarPage } from "./pages/RadarPage";
 import { ResultsPage } from "./pages/ResultsPage";
 import { MillasLabPage } from "./pages/MillasLabPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { AlertasPage } from "./pages/AlertasPage";
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Página principal */}
         <Route path="/" element={<RadarPage />} />
-
-        {/* Resultados das buscas */}
         <Route path="/resultados" element={<ResultsPage />} />
-
-        {/* Laboratório de Milhas / Conversor */}
         <Route path="/lab-milhas" element={<MillasLabPage />} />
-
-        {/* Configurações / Agendador */}
-        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/alertas" element={<AlertasPage />} />
+        <Route path="/config" element={<SettingsPage />} />
       </Routes>
     </BrowserRouter>
   );
