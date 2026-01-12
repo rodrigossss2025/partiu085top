@@ -46,7 +46,6 @@ function normalizePreco(valor: any): number {
 
 /**
  * 🔵 Separa Radar (AUTO) x 🟠 Manual (MANUAL)
- * Igual ao comportamento do site offline
  */
 function processarResultados(listaBruta: Oferta[], filtro: string) {
   const termo = filtro.trim().toUpperCase();
@@ -72,12 +71,10 @@ function processarResultados(listaBruta: Oferta[], filtro: string) {
     };
 
     if (o.modo === "AUTO") {
-      // 🔵 Radar só exibe ofertas abaixo do baseline
       if (baseline > 0 && preco <= baseline) {
         radar.push(obj);
       }
     } else {
-      // 🟠 Manual sempre aparece
       manual.push(obj);
     }
   });
@@ -86,32 +83,6 @@ function processarResultados(listaBruta: Oferta[], filtro: string) {
     radar: radar.sort((a, b) => a.preco - b.preco),
     manual: manual.sort((a, b) => a.preco - b.preco),
   };
-}
-
-/* =================== API: envio manual p/ Telegram =================== */
-
-async function enviarParaTelegram(oferta: Oferta) {
-  try {
-    const res = await fetch(
-      "https://SEU_BACKEND_RENDER/api/telegram/oferta",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(oferta),
-      }
-    );
-
-    const data = await res.json();
-
-    if (data.success) {
-      alert("👍 Oferta enviada para o Telegram");
-    } else {
-      alert("⚠️ Erro ao enviar para o Telegram");
-    }
-  } catch (err) {
-    console.error("Erro ao enviar oferta:", err);
-    alert("❌ Falha ao comunicar com o servidor");
-  }
 }
 
 /* =================== PAGE =================== */
@@ -182,13 +153,11 @@ export function ResultsPage() {
       ) : (
         <div className="space-y-12">
 
-          {/* 🔵 OFERTAS DO RADAR */}
           <Section
             title="🔵 Ofertas do Radar (Automático)"
             lista={grupos.radar}
           />
 
-          {/* 🟠 OFERTAS MANUAIS */}
           <Section
             title="🟠 Ofertas Manuais"
             lista={grupos.manual}
@@ -234,15 +203,8 @@ function Section({
         "
       >
         {lista.map((voo, i) => (
-          <div key={`${getDestino(voo)}-${i}`} className="space-y-2">
+          <div key={`${getDestino(voo)}-${i}`}>
             <FlightCard voo={voo} />
-
-            <button
-              onClick={() => enviarParaTelegram(voo)}
-              className="w-full px-3 py-2 bg-green-600 hover:bg-green-700 rounded-md text-white text-sm font-bold transition"
-            >
-              Enviar para Telegram
-            </button>
           </div>
         ))}
       </div>

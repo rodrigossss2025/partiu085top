@@ -69,31 +69,55 @@ def formatar_oferta_telegram(oferta: dict) -> str:
     origem = oferta.get("origem")
     destino = oferta.get("destino")
 
+    origem_nome = oferta.get("origem_nome") or origem
+    destino_nome = oferta.get("destino_nome") or destino
+
     ida = _formatar_data_br(oferta.get("data_ida", ""))
     volta_raw = oferta.get("data_volta")
     volta = _formatar_data_br(volta_raw) if volta_raw else None
 
     preco = _formatar_preco_br(float(oferta.get("preco", 0)))
 
+    baseline = oferta.get("baseline")
+    variacao = oferta.get("variacao_percentual")
+    status = oferta.get("status")  # bom, excelente, normal, alto
+
+    # emojis por status
+    status_map = {
+        "excelente": "🔥 Oferta Excelente",
+        "bom": "🟢 Oferta Boa",
+        "normal": "⚪ Preço na média",
+        "alto": "🔺 Acima da média"
+    }
+
+    status_txt = status_map.get(status, "ℹ️ Preço analisado")
+
     link = gerar_link_google_flights_curto(origem, destino)
 
     texto = (
-        "✈️ *Oportunidade de Voo*\n\n"
-        f"Origem: {origem}\n"
-        f"Destino: {destino}\n"
-        f"📅 Ida: {ida}\n"
+        "💰✈️ *Alerta Promocional — Partiu 085!*\n\n"
+        f"📍 *Origem:* {origem} - {origem_nome}\n"
+        f"🎯 *Destino:* {destino} - {destino_nome}\n\n"
+        f"📅 *Ida:* {ida}\n"
     )
 
     if volta:
-        texto += f"📅 Volta: {volta}\n"
+        texto += f"📅 *Volta:* {volta}\n"
 
-    texto += (
-        f"💰 Preço: {preco}\n\n"
-        "👉 Abra o link e confirme as datas no Google Flights\n"
-        f"🔗 {link}"
-    )
+    texto += f"\n💰 *Preço total (ida + volta):* {preco}\n"
+
+    if baseline and variacao:
+        texto += (
+            f"📉 *Preço médio histórico:* {_formatar_preco_br(float(baseline))}\n"
+            f"📊 *Variação:* {variacao}%\n"
+        )
+
+    texto += f"{status_txt}\n\n"
+    texto += f"🔗 *Confirmar no Google Flights:*\n{link}\n\n"
+    texto += "🌵 _Partiu 085 — De Fortaleza para o mundo!_ 🌎"
 
     return texto
+
 
 
 # ================= ENVIO MANUAL =================
