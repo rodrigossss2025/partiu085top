@@ -15,7 +15,8 @@ export function SettingsPage() {
   const [logs, setLogs] = useState<string[]>([]);
   const logsRef = useRef<HTMLDivElement | null>(null);
 
-  const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:10000";
+  const API_BASE = `${import.meta.env.VITE_API_URL || "http://localhost:10000"}/api`;
+
 
   /* ------------ STATUS ---------------- */
 
