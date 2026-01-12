@@ -1,122 +1,220 @@
-import React, { useEffect, useState } from "react";
-import {
-  getStatusRadar,
-  iniciarAgendador,
-  pausarAgendador,
-  executarAgendadorAgora,
-} from "../services/backendService";
+import React, { useEffect, useState, useRef } from "react";
 import { GlassCard } from "@/components/GlassCard";
-
-/* =================== PAGE =================== */
+import { useNavigate } from "react-router-dom";
 
 export function SettingsPage() {
-  // Tipando o estado para evitar problemas com 'any'
-  const [status, setStatus] = useState<any>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [executandoAgora, setExecutandoAgora] = useState<boolean>(false);
-  const [resultadoAgora, setResultadoAgora] = useState<any>(null);
 
-  async function fetchStatus() {
+  const navigate = useNavigate();
+
+  const [statusExecucao, setStatusExecucao] = useState<boolean>(false);
+  const [loadingExecucao, setLoadingExecucao] = useState<boolean>(false);
+  const [mensagem, setMensagem] = useState<string>("");
+  const [progresso, setProgresso] = useState<number>(0);
+  const [finalizou, setFinalizou] = useState<boolean>(false);
+
+  const [logs, setLogs] = useState<string[]>([]);
+  const logsRef = useRef<HTMLDivElement | null>(null);
+
+  const API_BASE = "http://localhost:10000/api";
+
+  /* ------------ STATUS ---------------- */
+
+  async function fetchStatusExecucao() {
     try {
-      const data = await getStatusRadar();
-      setStatus(data);
+      const res = await fetch(`${API_BASE}/status_execucao`);
+      const data = await res.json();
+
+      const rodando = data.em_andamento === true;
+      setStatusExecucao(rodando);
+
+      if (rodando) {
+        setProgresso(prev => Math.min(prev + 8, 92));
+      } else {
+        setProgresso(100);
+        setFinalizou(true);
+      }
+
     } catch (err) {
-      console.error("Erro ao carregar status do agendador:", err);
+      console.error("Erro ao consultar status da execução:", err);
     }
   }
 
-  const handleIniciar = async () => {
-    setLoading(true);
-    try {
-      await iniciarAgendador();
-      await fetchStatus();
-    } catch (err) {
-      console.error("Erro ao iniciar agendador:", err);
-    } finally {
-      setLoading(false);
-    }
+  const iniciarPolling = () => {
+    const interval = setInterval(fetchStatusExecucao, 3000);
+    return interval;
   };
 
-  const handlePausar = async () => {
-    setLoading(true);
-    try {
-      await pausarAgendador();
-      await fetchStatus();
-    } catch (err) {
-      console.error("Erro ao pausar agendador:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  /* ------------ LOGS AO VIVO ---------------- */
 
-  const handleRodarAgora = async () => {
-    setExecutandoAgora(true);
-    setResultadoAgora(null);
-
+  async function fetchLogs() {
     try {
-      const data = await executarAgendadorAgora();
-      setResultadoAgora(data);
+      const res = await fetch(`${API_BASE}/logs_execucao`);
+      const data = await res.json();
+
+      if (data?.logs) {
+        setLogs(data.logs);
+      }
+
+      // auto scroll
+      setTimeout(() => {
+        if (logsRef.current) {
+          logsRef.current.scrollTop = logsRef.current.scrollHeight;
+        }
+      }, 100);
+
     } catch (err) {
-      console.error("Erro ao executar agora:", err);
-    } finally {
-      setExecutandoAgora(false);
+      console.error("Erro ao buscar logs:", err);
     }
-  };
+  }
 
   useEffect(() => {
-    fetchStatus();
+    fetchLogs();
+    const interval = setInterval(fetchLogs, 2000);
+    return () => clearInterval(interval);
   }, []);
 
-  // Lógica de texto simplificada
-  const textoStatus =
-    status?.status ||
-    status?.message ||
-    (loading ? "Atualizando..." : "Carregando status do agendador...");
+  /* ------------ EXECUTAR ---------------- */
+
+  const handleExecutarAgora = async () => {
+    setLoadingExecucao(true);
+    setMensagem("");
+    setProgresso(5);
+    setFinalizou(false);
+
+    try {
+      const res = await fetch(
+        `${API_BASE}/executar`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ modo: "MANUAL" })
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMensagem(data.message || "Erro ao iniciar execução");
+        return;
+      }
+
+      setMensagem("🚀 Busca iniciada. Aguarde…");
+      const poll = iniciarPolling();
+
+      const stopCheck = setInterval(() => {
+        if (finalizou) {
+          clearInterval(poll);
+          clearInterval(stopCheck);
+        }
+      }, 1000);
+
+    } catch (err) {
+      console.error("Erro ao executar agora:", err);
+      setMensagem("❌ Erro ao conectar com o servidor.");
+    } finally {
+      setLoadingExecucao(false);
+    }
+  };
+
+  /* ------------ MONTAGEM INICIAL ---------------- */
+
+  useEffect(() => {
+    fetchStatusExecucao();
+  }, []);
 
   return (
     <div className="p-4 space-y-4">
+
       <GlassCard>
         <h2 className="text-lg font-bold mb-2 text-white">
-          Status do Agendador
+          Execução Manual do Radar
         </h2>
 
-        <p className="text-sm text-gray-300 mb-2">{textoStatus}</p>
+        <p className="text-sm text-gray-300 mb-2">
+          Status:{" "}
+          {statusExecucao
+            ? "⏳ Busca em execução"
+            : "🟢 Aguardando execução"}
+        </p>
+
+        {(statusExecucao || progresso > 0) && (
+          <div className="w-full bg-white/10 rounded h-3 mb-3">
+            <div
+              className="bg-orange-500 h-3 rounded transition-all"
+              style={{ width: `${progresso}%` }}
+            />
+          </div>
+        )}
 
         <div className="flex gap-3 mt-3 flex-wrap">
           <button
-            onClick={handleIniciar}
-            disabled={loading}
-            className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            onClick={handleExecutarAgora}
+            disabled={loadingExecucao || statusExecucao}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-white font-bold disabled:opacity-50"
           >
-            Iniciar
+            {statusExecucao
+              ? "Executando..."
+              : loadingExecucao
+              ? "Iniciando..."
+              : "Executar Busca Agora"}
           </button>
 
           <button
-            onClick={handlePausar}
-            disabled={loading}
-            className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-md text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            onClick={fetchStatusExecucao}
+            className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-md text-white font-bold"
           >
-            Pausar
+            Atualizar Status
           </button>
 
-          <button
-            onClick={handleRodarAgora}
-            disabled={executandoAgora}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {executandoAgora ? "Executando..." : "Rodar Agora"}
-          </button>
+          {finalizou && (
+            <button
+              onClick={() => navigate("/results")}
+              className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md text-white font-bold"
+            >
+              Abrir Resultados
+            </button>
+          )}
         </div>
 
-        {resultadoAgora && (
+        {mensagem && (
           <div className="mt-4 p-3 bg-black/40 text-gray-200 rounded-lg text-sm border border-white/10">
-            <p className="font-bold mb-1 text-blue-400">Resultado:</p>
-            <pre className="whitespace-pre-wrap overflow-x-auto">
-              {JSON.stringify(resultadoAgora, null, 2)}
-            </pre>
+            {mensagem}
           </div>
         )}
       </GlassCard>
+
+      {/* ---------- PAINEL DE LOGS ---------- */}
+
+      <GlassCard>
+        <h3 className="text-md font-bold text-white mb-2">
+          📡 Logs de Execução (tempo real)
+        </h3>
+
+        <div
+          ref={logsRef}
+          className="bg-black/40 border border-white/10 rounded-lg p-3 h-72 overflow-y-auto text-sm font-mono text-gray-200"
+        >
+          {logs.length === 0 && (
+            <div className="opacity-60">Nenhum log disponível.</div>
+          )}
+
+          {logs.map((l, i) => (
+            <div key={i} className="whitespace-pre-wrap">
+              {l}
+            </div>
+          ))}
+        </div>
+
+        <div className="flex justify-end mt-2">
+          <button
+            onClick={() => setLogs([])}
+            className="px-3 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded text-white"
+          >
+            Limpar logs
+          </button>
+        </div>
+      </GlassCard>
+
     </div>
   );
 }

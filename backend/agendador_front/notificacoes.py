@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import os
 import requests
 from dotenv import load_dotenv
@@ -9,7 +10,14 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 
+# ================= ENVIO BÁSICO =================
+
 def enviar_mensagem_telegram(mensagem: str):
+    """
+    Envia mensagem para o Telegram **somente quando chamado manualmente**.
+    (não existe envio automático no orquestrador)
+    """
+
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
         print("⚠️ Telegram não configurado.")
         return
@@ -23,18 +31,16 @@ def enviar_mensagem_telegram(mensagem: str):
         "disable_web_page_preview": True,
     }
 
-    def enviar_mensagem_telegram(mensagem: str):
-        print("🧪 DEBUG TELEGRAM")
-        print("TOKEN:", TELEGRAM_TOKEN)
-        print("CHAT_ID:", TELEGRAM_CHAT_ID)
+    print("📨 Enviando mensagem manual para o Telegram...")
 
     try:
         requests.post(url, data=payload, timeout=10)
+        print("✅ Mensagem enviada")
     except Exception as e:
         print(f"❌ Erro Telegram: {e}")
 
 
-# ================= FORMATAÇÃO CENTRAL =================
+# ================= FORMATAÇÃO =================
 
 def _formatar_data_br(data_iso: str) -> str:
     try:
@@ -44,7 +50,12 @@ def _formatar_data_br(data_iso: str) -> str:
 
 
 def _formatar_preco_br(valor: float) -> str:
-    return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return (
+        f"R$ {valor:,.2f}"
+        .replace(",", "X")
+        .replace(".", ",")
+        .replace("X", ".")
+    )
 
 
 def gerar_link_google_flights_curto(origem: str, destino: str) -> str:
@@ -85,6 +96,13 @@ def formatar_oferta_telegram(oferta: dict) -> str:
     return texto
 
 
+# ================= ENVIO MANUAL =================
+
 def enviar_oferta_telegram(oferta: dict):
+    """
+    🚫 Envio automático desativado.
+    🟢 Esta função agora é usada **somente**
+    quando o usuário clicar no botão do ResultsPage.
+    """
     mensagem = formatar_oferta_telegram(oferta)
     enviar_mensagem_telegram(mensagem)

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """Aplicação Flask principal — Partiu085 FULL
-Versão FINAL corrigida
+Versão FINAL corrigida (execução manual protegida + fallback automático)
 """
 
 from __future__ import annotations
@@ -39,10 +39,9 @@ if not os.getenv('TELEGRAM_TOKEN'):
 # 2. IMPORTAÇÕES
 # ------------------------------------------------------
 try:
-    from backend.core_milhas.orquestrador_voos import executar_fluxo_voos
+    from backend.core_milhas.orquestrador_voos import executar_fluxo_voos, carregar_destinos_csv
     from backend.agendador_front.notificacoes import enviar_mensagem_telegram, enviar_oferta_telegram
     from backend.core_amadeus.rotator import AmadeusRotator
-    #import backend.config_agendador as config_agendador
     from backend.agendador_front import scheduler
     from backend.agendador_front.scheduler import executar_agora
     from backend.core_milhas.processador_texto import processar_texto_promocional
@@ -56,7 +55,6 @@ except ImportError as e:
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 
-
 RESULTADOS_CSV = os.path.join(DATA_DIR, "resultados_v2.csv")
 ALERTAS_CSV_PATH = os.path.join(DATA_DIR, "alertas_fixos.csv")
 DESTINOS_CSV_PATH = os.path.join(DATA_DIR, "coletas_filtrado_iata.csv")
@@ -64,8 +62,14 @@ DESTINOS_CSV_PATH = os.path.join(DATA_DIR, "coletas_filtrado_iata.csv")
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
+from backend.api.log_buffer import add_log
+from backend.api.logs_execucao import bp_logs
+
+app.register_blueprint(bp_logs)
+
+
 # ------------------------------------------------------
-# 4. AGENDADOR (BACKGROUND)
+# 4. AGENDADOR (opcional — pode permanecer inativo)
 # ------------------------------------------------------
 def start_scheduler():
     try:
@@ -79,11 +83,13 @@ def start_scheduler():
 if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug:
     threading.Thread(target=start_scheduler, daemon=True).start()
 
+# Flag de execução manual protegida
+EXECUCAO_EM_ANDAMENTO = False
+
 # ------------------------------------------------------
 # 5. FUNÇÕES UTILITÁRIAS
 # ------------------------------------------------------
 def _ler_resultados() -> List[Dict[str, Any]]:
-    """Lê o CSV principal de resultados (resultados_v2.csv)."""
     if os.path.exists(RESULTADOS_CSV):
         try:
             with open(RESULTADOS_CSV, "r", encoding="utf-8") as f:
@@ -118,10 +124,7 @@ def _resumo_status_radar() -> Dict[str, Any]:
     caminho_json = os.path.join(DATA_DIR, "resultados.json")
 
     if not os.path.exists(caminho_json):
-        return {
-            "total_registros": 0,
-            "ultima_atualizacao": None
-        }
+        return {"total_registros": 0, "ultima_atualizacao": None}
 
     try:
         with open(caminho_json, "r", encoding="utf-8") as f:
@@ -137,26 +140,19 @@ def _resumo_status_radar() -> Dict[str, Any]:
 
         ultima = lista[-1].get("timestamp") if lista else None
 
-        return {
-            "total_registros": len(lista),
-            "ultima_atualizacao": ultima
-        }
+        return {"total_registros": len(lista), "ultima_atualizacao": ultima}
+
     except Exception as e:
-        print("Erro lendo status do radar:", e)
-        return {
-            "total_registros": 0,
-            "ultima_atualizacao": None
-        }
+        log_info(f"Erro lendo status do radar: {e}")
+        return {"total_registros": 0, "ultima_atualizacao": None}
 
 
 # ------------------------------------------------------
 # 6. ROTAS DA API
 # ------------------------------------------------------
 
-
 @app.route("/api/destinos", methods=["GET"])
 def api_destinos():
-    """Nova rota oficial de destinos (usada pelo front novo)."""
     caminho = DESTINOS_CSV_PATH
 
     if not os.path.exists(caminho):
@@ -179,14 +175,6 @@ def api_destinos():
 
 @app.route("/destinos", methods=["GET"])
 def destinos_sem_prefixo():
-    """
-    Rota de compatibilidade.
-
-    O frontend em produção está chamando
-    https://partiu085-api.onrender.com/destinos
-
-    Para não quebrar nada, espelhamos /api/destinos aqui.
-    """
     return api_destinos()
 
 
@@ -195,48 +183,68 @@ def raiz():
     return jsonify({"status": "online", "app": "Partiu085 V2"})
 
 
+# ------------------------------------------------------
+# EXECUÇÃO MANUAL — com fallback automático
+# ------------------------------------------------------
 @app.route("/api/executar", methods=["POST"])
 def api_executar():
+    global EXECUCAO_EM_ANDAMENTO
+
+    if EXECUCAO_EM_ANDAMENTO:
+        return jsonify({
+            "success": False,
+            "message": "⚠️ Já existe uma busca em andamento"
+        }), 409
+
     data = request.get_json(force=True, silent=True) or {}
     modo = data.get("modo", "MANUAL")
     destinos = data.get("destinos") or []
     data_ida = data.get("data_ida")
     data_volta = data.get("data_volta")
-    print("📩 DEBUG FRONTEND → BACKEND")
-    print("destinos recebidos:", destinos)
-    print("data_ida recebida:", data_ida)
-    print("data_volta recebida:", data_volta)
 
-    log_info(f"🔔 Busca Iniciada: {destinos}")
+    # 🟢 FALLBACK — nenhum destino enviado → usa CSV e vira AUTO
+    if not destinos:
+        log_info("🔁 Nenhum destino recebido — usando lista padrão do CSV")
+        try:
+            destinos_csv = carregar_destinos_csv()
+            destinos = [d["destino"] for d in destinos_csv]
+            modo = "AUTO"
+            log_info(f"✔ Destinos fallback carregados: {len(destinos)}")
+        except Exception as e:
+            log_info(f"❌ Erro ao carregar destinos fallback: {e}")
+            destinos = []
+
+    log_info(f"🔔 Execução iniciada | modo={modo} | destinos={len(destinos)}")
+
+    EXECUCAO_EM_ANDAMENTO = True
 
     def _background_job():
+        global EXECUCAO_EM_ANDAMENTO
         try:
-            log_info("✈️ Executando orquestrador...")
             executar_fluxo_voos(
                 modo=modo,
                 destinos_personalizados=destinos,
                 data_ida=data_ida,
                 data_volta=data_volta,
             )
-            log_info("✅ Busca finalizada no CSV v2!")
-
+            log_info("✅ Busca finalizada e salva no CSV")
         except Exception as exc:
             log_info(f"🚨 Erro fatal: {exc}")
+        finally:
+            EXECUCAO_EM_ANDAMENTO = False
+            log_info("🔚 Execução liberada")
 
     threading.Thread(target=_background_job, daemon=True).start()
-    return jsonify({"success": True, "message": "Busca iniciada."})
+    return jsonify({"success": True, "message": "🚀 Busca iniciada."})
+
+
+@app.route("/api/status_execucao", methods=["GET"])
+def api_status_execucao():
+    return jsonify({"em_andamento": EXECUCAO_EM_ANDAMENTO})
 
 
 @app.route("/api/resultados", methods=["GET"])
 def api_resultados():
-    """
-    Retorna os resultados para o frontend.
-
-    - Primeiro tenta usar data/resultados.json (formato novo, se existir).
-    - Se não encontrar ou der erro, faz fallback para resultados_v2.csv,
-      que é o arquivo usado hoje pelo orquestrador.
-    """
-    # 1) Tenta JSON "novo"
     caminho_json = os.path.join(DATA_DIR, "resultados.json")
     if os.path.exists(caminho_json):
         try:
@@ -255,7 +263,6 @@ def api_resultados():
         except Exception as e:
             log_info(f"⚠️ Erro lendo resultados.json: {e}")
 
-    # 2) Fallback: CSV v2
     try:
         linhas = _ler_resultados()
         return jsonify({"success": True, "results": linhas})
@@ -273,7 +280,6 @@ def api_status_radar():
             "ultima_execucao": info.get("ultima_atualizacao"),
         }
     )
-
 
 # --- Alertas ---
 @app.route("/api/alertas", methods=["GET", "POST"])
@@ -342,9 +348,20 @@ def api_agendador_agora():
     return jsonify(resultado)
 
 
+EXEC_LOGS = []
+
+def add_log(msg):
+    ts = datetime.now().strftime("%H:%M:%S")
+    line = f"[{ts}] {msg}"
+    print(line)
+    EXEC_LOGS.append(line)
+
+    # limita histórico para evitar memória infinita
+    if len(EXEC_LOGS) > 500:
+        EXEC_LOGS.pop(0)
+
+
 
 if __name__ == "__main__":
-    import os
-
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
